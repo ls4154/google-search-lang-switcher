@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Google 검색 페이지인지 확인
     if (!currentTab.url.includes('google.co')) {
-        document.getElementById('currentSettings').innerHTML = 
+        document.getElementById('currentSettings').textContent =
             chrome.i18n.getMessage('notGooglePage');
         return;
     }
@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const displayLr = currentLr || defaultValue;
     const displayCr = currentCr || defaultValue;
 
-    document.getElementById('currentSettings').innerHTML = 
+    document.getElementById('currentSettings').textContent =
         chrome.i18n.getMessage('currentSettings', [displayHl, displayGl, displayLr, displayCr]);
 
     // 현재 탭의 설정을 셀렉트 박스에 반영

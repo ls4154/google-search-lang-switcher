@@ -15,7 +15,7 @@
     "message": "Checking current settings..."
   },
   "currentSettings": {
-    "message": "Current page: hl=$hl$, gl=$gl$<br>lr=$lr$, cr=$cr$",
+    "message": "Current page: hl=$hl$, gl=$gl$\nlr=$lr$, cr=$cr$",
     "placeholders": {
       "hl": { "content": "$1" },
       "gl": { "content": "$2" },

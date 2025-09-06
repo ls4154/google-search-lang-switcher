@@ -15,7 +15,7 @@
     "message": "현재 설정을 확인 중..."
   },
   "currentSettings": {
-    "message": "현재 페이지: hl=$hl$, gl=$gl$<br>lr=$lr$, cr=$cr$",
+    "message": "현재 페이지: hl=$hl$, gl=$gl$\nlr=$lr$, cr=$cr$",
     "placeholders": {
       "hl": { "content": "$1" },
       "gl": { "content": "$2" },
