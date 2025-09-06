@@ -1,14 +1,15 @@
 {
   "manifest_version": 3,
-  "name": "Google Search Language Switcher",
+  "name": "__MSG_extensionName__",
   "version": "0.1",
-  "description": "구글 검색의 언어 및 지역 파라미터 변경",
+  "description": "__MSG_extensionDescription__",
+  "default_locale": "ko",
   "permissions": [
     "activeTab"
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "언어/지역 변경"
+    "default_title": "__MSG_popupTitle__"
   },
   "content_scripts": [
     {

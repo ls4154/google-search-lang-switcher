@@ -1,0 +1,50 @@
+{
+  "extensionName": {
+    "message": "Google Search Language Switcher"
+  },
+  "extensionDescription": {
+    "message": "구글 검색의 언어 및 지역 파라미터 변경"
+  },
+  "popupTitle": {
+    "message": "언어/지역 변경"
+  },
+  "header": {
+    "message": "Google 언어/지역 설정"
+  },
+  "currentSettingsLoading": {
+    "message": "현재 설정을 확인 중..."
+  },
+  "currentSettings": {
+    "message": "현재 페이지: hl=$hl$, gl=$gl$<br>lr=$lr$, cr=$cr$",
+    "placeholders": {
+      "hl": { "content": "$1" },
+      "gl": { "content": "$2" },
+      "lr": { "content": "$3" },
+      "cr": { "content": "$4" }
+    }
+  },
+  "notGooglePage": {
+    "message": "⚠️ 구글 검색 페이지에서 사용해주세요"
+  },
+  "languageLabel": {
+    "message": "언어 (hl):"
+  },
+  "regionLabel": {
+    "message": "지역 (gl):"
+  },
+  "languageRestrictLabel": {
+    "message": "언어 제한 (lr):"
+  },
+  "countryRestrictLabel": {
+    "message": "국가 제한 (cr):"
+  },
+  "defaultValue": {
+    "message": "기본값"
+  },
+  "resetBtn": {
+    "message": "초기화"
+  },
+  "applyBtn": {
+    "message": "적용"
+  }
+}
