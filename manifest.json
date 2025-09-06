@@ -3,10 +3,10 @@
   "name": "__MSG_extensionName__",
   "version": "1.0",
   "description": "__MSG_extensionDescription__",
-  "default_locale": "ko",
+  "default_locale": "en",
   "browser_specific_settings": {
     "gecko": {
-      "id": "google-lang-switcher@ls4154.dev"
+      "id": "google-search-lang-switcher@ls4154.dev"
     }
   },
   "permissions": [
