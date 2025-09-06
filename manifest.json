@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Google Search Language Switcher",
+  "version": "0.1",
+  "description": "구글 검색의 언어 및 지역 파라미터 변경",
+  "permissions": [
+    "activeTab"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "언어/지역 변경"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://google.com/search*",
+        "*://www.google.com/search*"
+      ],
+      "js": ["content.js"]
+    }
+  ],
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}
