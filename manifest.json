@@ -10,12 +10,19 @@
     }
   },
   "permissions": [
-    "activeTab"
+    "activeTab",
+    "storage"
   ],
   "action": {
     "default_popup": "popup.html",
     "default_title": "__MSG_popupTitle__"
   },
+  "web_accessible_resources": [
+    {
+      "resources": ["languages.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "content_scripts": [
     {
       "matches": [

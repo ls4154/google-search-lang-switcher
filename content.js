@@ -48,13 +48,13 @@ function updateUrlParams(hl, gl, lr, cr) {
 // URL 파라미터 초기화 함수
 function resetUrlParams() {
     const url = new URL(window.location.href);
-    
+
     // hl, gl, lr, cr 파라미터 제거
     url.searchParams.delete('hl');
     url.searchParams.delete('gl');
     url.searchParams.delete('lr');
     url.searchParams.delete('cr');
-    
+
     // 페이지 새로고침
     window.location.href = url.toString();
 }
