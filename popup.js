@@ -78,8 +78,22 @@ function populateLanguageSelects() {
     const defaultText = chrome.i18n.getMessage('defaultValue');
 
     // Clear existing options (keep default)
-    hlSelect.innerHTML = `<option value="" data-i18n="defaultValue">${defaultText}</option>`;
-    lrSelect.innerHTML = `<option value="" data-i18n="defaultValue">${defaultText}</option>`;
+    hlSelect.replaceChildren();
+    lrSelect.replaceChildren();
+
+    // Add default option for HL
+    const hlDefaultOption = document.createElement('option');
+    hlDefaultOption.value = '';
+    hlDefaultOption.setAttribute('data-i18n', 'defaultValue');
+    hlDefaultOption.textContent = defaultText;
+    hlSelect.appendChild(hlDefaultOption);
+
+    // Add default option for LR
+    const lrDefaultOption = document.createElement('option');
+    lrDefaultOption.value = '';
+    lrDefaultOption.setAttribute('data-i18n', 'defaultValue');
+    lrDefaultOption.textContent = defaultText;
+    lrSelect.appendChild(lrDefaultOption);
 
     // Add HL favorites first
     userFavorites.hl.forEach(code => {
@@ -133,8 +147,22 @@ function populateCountrySelects() {
     const defaultText = chrome.i18n.getMessage('defaultValue');
 
     // Clear existing options (keep default)
-    glSelect.innerHTML = `<option value="" data-i18n="defaultValue">${defaultText}</option>`;
-    crSelect.innerHTML = `<option value="" data-i18n="defaultValue">${defaultText}</option>`;
+    glSelect.replaceChildren();
+    crSelect.replaceChildren();
+
+    // Add default option for GL
+    const glDefaultOption = document.createElement('option');
+    glDefaultOption.value = '';
+    glDefaultOption.setAttribute('data-i18n', 'defaultValue');
+    glDefaultOption.textContent = defaultText;
+    glSelect.appendChild(glDefaultOption);
+
+    // Add default option for CR
+    const crDefaultOption = document.createElement('option');
+    crDefaultOption.value = '';
+    crDefaultOption.setAttribute('data-i18n', 'defaultValue');
+    crDefaultOption.textContent = defaultText;
+    crSelect.appendChild(crDefaultOption);
 
     // Add GL favorites first
     userFavorites.gl.forEach(code => {
@@ -338,11 +366,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.querySelectorAll('[data-i18n]').forEach(element => {
         const key = element.getAttribute('data-i18n');
         const message = chrome.i18n.getMessage(key);
-        if (element.tagName === 'OPTION') {
-            element.textContent = message;
-        } else {
-            element.textContent = message;
-        }
+        element.textContent = message;
     });
 
     // 현재 탭 정보 가져오기
