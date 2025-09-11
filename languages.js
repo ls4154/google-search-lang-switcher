@@ -700,3 +700,15 @@ const DEFAULT_FAVORITES = {
   lr: ['lang_en'],
   cr: ['countryUS']
 };
+
+const DEFAULT_PRESETS = {
+  'english-us': {
+    name: 'English (US)',
+    params: {
+      hl: 'en',
+      gl: 'us',
+      lr: '',
+      cr: ''
+    }
+  }
+};

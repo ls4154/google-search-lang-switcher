@@ -46,5 +46,26 @@
   },
   "applyBtn": {
     "message": "Apply"
+  },
+  "presetLabel": {
+    "message": "Quick Presets:"
+  },
+  "selectPreset": {
+    "message": "Select preset..."
+  },
+  "enterPresetName": {
+    "message": "Enter preset name:"
+  },
+  "cancel": {
+    "message": "Cancel"
+  },
+  "save": {
+    "message": "Save"
+  },
+  "confirmDelete": {
+    "message": "Confirm deletion"
+  },
+  "delete": {
+    "message": "Delete"
   }
 }

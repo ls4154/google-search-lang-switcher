@@ -12,13 +12,13 @@
 
         .header {
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 16px;
             font-weight: bold;
             color: #1a73e8;
         }
 
         .form-group {
-            margin-bottom: 16px;
+            margin-bottom: 12px;
         }
 
         label {
@@ -85,9 +85,9 @@
 
         .current-settings {
             background: #f8f9fa;
-            padding: 12px;
+            padding: 10px;
             border-radius: 4px;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
             font-size: 12px;
             color: #5f6368;
         }
@@ -135,6 +135,134 @@
             padding-bottom: 4px;
             margin-bottom: 4px;
         }
+
+        .preset-section {
+            background: #f8f9fa;
+            border: 1px solid #e8eaed;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 12px;
+        }
+
+        .preset-btn {
+            width: 20px;
+            height: 32px;
+            border: 1px solid #dadce0;
+            background: white;
+            border-radius: 3px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+            padding: 0;
+        }
+
+        .preset-btn svg {
+            width: 14px;
+            height: 14px;
+            color: #5f6368;
+        }
+
+        .preset-btn:hover {
+            background: #f8f9fa;
+            border-color: #1a73e8;
+        }
+
+        .preset-btn.delete svg {
+            color: #d93025;
+        }
+
+        .preset-btn.delete:hover {
+            background: #fce8e6;
+        }
+
+        .modal {
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            width: 280px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-header {
+            font-weight: 500;
+            margin-bottom: 12px;
+            color: #202124;
+        }
+
+        .modal-body {
+            margin-bottom: 16px;
+        }
+
+        .modal-body input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #dadce0;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .modal-body input:focus {
+            outline: none;
+            border-color: #1a73e8;
+            box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .modal-buttons button {
+            padding: 8px 16px;
+            border: 1px solid #dadce0;
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .modal-buttons button:hover {
+            background: #f8f9fa;
+        }
+
+        #modalSaveBtn {
+            background: #1a73e8;
+            color: white;
+            border-color: #1a73e8;
+        }
+
+        #modalSaveBtn:hover {
+            background: #1557b0;
+        }
+
+        #deleteConfirmBtn {
+            background: #d93025;
+            color: white;
+            border-color: #d93025;
+        }
+
+        #deleteConfirmBtn:hover {
+            background: #b52d20;
+        }
     </style>
 </head>
 <body>
@@ -142,6 +270,25 @@
 
     <div class="current-settings" id="currentSettings" data-i18n="currentSettingsLoading">
         Checking current settings...
+    </div>
+
+    <div class="preset-section">
+        <label for="presetSelect" data-i18n="presetLabel">Quick Presets:</label>
+        <div style="display: flex; align-items: center;">
+            <select id="presetSelect" style="width: calc(100% - 48px); margin-right: 4px;">
+                <option value="" data-i18n="selectPreset">Select preset...</option>
+            </select>
+            <button id="savePresetBtn" class="preset-btn" type="button" title="Save current settings as preset" style="margin-right: 2px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+            </button>
+            <button id="deletePresetBtn" class="preset-btn delete" type="button" title="Delete selected preset">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+            </button>
+        </div>
     </div>
 
     <div class="form-group">
@@ -203,6 +350,38 @@
     <div class="buttons">
         <button id="resetBtn" class="btn-reset" data-i18n="resetBtn">Reset</button>
         <button id="applyBtn" class="btn-apply" data-i18n="applyBtn">Apply</button>
+    </div>
+
+    <!-- Custom Modal for Preset Name Input -->
+    <div id="presetModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span data-i18n="enterPresetName">Enter preset name:</span>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="presetNameInput" maxlength="50" placeholder="My Preset">
+            </div>
+            <div class="modal-buttons">
+                <button id="presetCancelBtn" data-i18n="cancel">Cancel</button>
+                <button id="presetSaveBtn" data-i18n="save">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Modal for Delete Confirmation -->
+    <div id="deleteModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span data-i18n="confirmDelete">Confirm deletion</span>
+            </div>
+            <div class="modal-body">
+                <span id="deleteMessage">Delete preset "Example"?</span>
+            </div>
+            <div class="modal-buttons">
+                <button id="deleteCancelBtn" data-i18n="cancel">Cancel</button>
+                <button id="deleteConfirmBtn" data-i18n="delete">Delete</button>
+            </div>
+        </div>
     </div>
 
     <script src="languages.js"></script>

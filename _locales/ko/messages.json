@@ -46,5 +46,26 @@
   },
   "applyBtn": {
     "message": "적용"
+  },
+  "presetLabel": {
+    "message": "빠른 프리셋:"
+  },
+  "selectPreset": {
+    "message": "프리셋 선택..."
+  },
+  "enterPresetName": {
+    "message": "프리셋 이름 입력:"
+  },
+  "cancel": {
+    "message": "취소"
+  },
+  "save": {
+    "message": "저장"
+  },
+  "confirmDelete": {
+    "message": "삭제 확인"
+  },
+  "delete": {
+    "message": "삭제"
   }
 }

@@ -1,4 +1,3 @@
-// Storage management
 let userFavorites = {
     hl: [],
     gl: [],
@@ -6,14 +5,15 @@ let userFavorites = {
     cr: []
 };
 
-// Load user favorites from storage
+let userPresets = {};
+
 async function loadFavorites() {
     return new Promise((resolve) => {
         chrome.storage.sync.get(['favorites'], (result) => {
             if (result.favorites) {
                 userFavorites = result.favorites;
             } else {
-                // Use default favorites for first-time users
+                // Use default favorites for first-time
                 userFavorites = DEFAULT_FAVORITES;
             }
             resolve();
@@ -21,12 +21,184 @@ async function loadFavorites() {
     });
 }
 
-// Save user favorites to storage
 function saveFavorites() {
     chrome.storage.sync.set({ favorites: userFavorites });
 }
 
-// Toggle favorite status
+async function loadPresets() {
+    return new Promise((resolve) => {
+        chrome.storage.sync.get(['presets'], (result) => {
+            if (result.presets) {
+                userPresets = result.presets;
+            } else {
+                // Use default presets for first-time
+                userPresets = DEFAULT_PRESETS;
+            }
+            resolve();
+        });
+    });
+}
+
+function savePresets() {
+    chrome.storage.sync.set({ presets: userPresets });
+}
+
+// Apply preset to current settings
+function applyPreset(presetId) {
+    if (!userPresets[presetId]) return;
+
+    const preset = userPresets[presetId];
+    const params = preset.params;
+
+    // Get dropdown elements
+    const hlSelect = document.getElementById('hlSelect');
+    const glSelect = document.getElementById('glSelect');
+    const lrSelect = document.getElementById('lrSelect');
+    const crSelect = document.getElementById('crSelect');
+
+    // Add unknown values to dropdowns if needed
+    addUnknownValueOption(hlSelect, params.hl, LANGUAGES);
+    addUnknownValueOption(glSelect, params.gl, COUNTRIES);
+    addUnknownValueOption(lrSelect, params.lr, LR_LANGUAGES);
+    addUnknownValueOption(crSelect, params.cr, CR_COUNTRIES);
+
+    // Update dropdowns
+    hlSelect.value = params.hl || '';
+    glSelect.value = params.gl || '';
+    lrSelect.value = params.lr || '';
+    crSelect.value = params.cr || '';
+
+    updateStarButtons();
+}
+
+// Show custom modal for preset name input
+function showPresetModal() {
+    const hlValue = document.getElementById('hlSelect').value;
+    const glValue = document.getElementById('glSelect').value;
+    const lrValue = document.getElementById('lrSelect').value;
+    const crValue = document.getElementById('crSelect').value;
+
+    // Generate suggested name
+    const hlName = hlValue ? (LANGUAGES[hlValue] || hlValue) : 'Default';
+    const glName = glValue ? (COUNTRIES[glValue] || glValue) : 'Default';
+    const suggestedName = `${hlName} (${glName})`;
+
+    // Set suggested name and show modal
+    const input = document.getElementById('presetNameInput');
+    input.value = suggestedName;
+    document.getElementById('presetModal').style.display = 'flex';
+
+    // Focus input and select all text
+    setTimeout(() => {
+        input.focus();
+        input.select();
+    }, 100);
+}
+
+// Save current settings as new preset
+function saveCurrentAsPreset() {
+    const presetNameInput = document.getElementById('presetNameInput');
+    const presetName = presetNameInput.value.trim();
+
+    if (!presetName) return;
+
+    const hlValue = document.getElementById('hlSelect').value;
+    const glValue = document.getElementById('glSelect').value;
+    const lrValue = document.getElementById('lrSelect').value;
+    const crValue = document.getElementById('crSelect').value;
+
+    // Generate unique ID
+    const presetId = 'preset_' + Date.now();
+
+    userPresets[presetId] = {
+        name: presetName,
+        params: {
+            hl: hlValue,
+            gl: glValue,
+            lr: lrValue,
+            cr: crValue
+        }
+    };
+
+    savePresets();
+    populatePresets();
+
+    // Select the newly created preset
+    document.getElementById('presetSelect').value = presetId;
+
+    // Hide modal
+    hidePresetModal();
+}
+
+function hidePresetModal() {
+    document.getElementById('presetModal').style.display = 'none';
+    document.getElementById('presetNameInput').value = '';
+}
+
+// Add unknown value as option at the end of list
+function addUnknownValueOption(selectElement, value, knownValues) {
+    if (!value || knownValues[value]) return; // Skip if empty or known
+
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = `${value} (custom)`;
+    option.style.fontStyle = 'italic';
+    option.style.color = '#f57c00';
+    option.dataset.isCustom = 'true';
+
+    // Add at the end to clearly separate from regular options
+    selectElement.appendChild(option);
+}
+
+function showDeleteModal() {
+    const presetSelect = document.getElementById('presetSelect');
+    const selectedPresetId = presetSelect.value;
+
+    if (!selectedPresetId) return;
+
+    const presetName = userPresets[selectedPresetId]?.name;
+    document.getElementById('deleteMessage').textContent = `Delete preset "${presetName}"?`;
+    document.getElementById('deleteModal').style.display = 'flex';
+}
+
+function deleteSelectedPreset() {
+    const presetSelect = document.getElementById('presetSelect');
+    const selectedPresetId = presetSelect.value;
+
+    if (!selectedPresetId) return;
+
+    delete userPresets[selectedPresetId];
+    savePresets();
+    populatePresets();
+    hideDeleteModal();
+}
+
+function hideDeleteModal() {
+    document.getElementById('deleteModal').style.display = 'none';
+}
+
+function populatePresets() {
+    const presetSelect = document.getElementById('presetSelect');
+    const defaultText = chrome.i18n.getMessage('selectPreset') || 'Select preset...';
+
+    // Clear existing options
+    presetSelect.replaceChildren();
+
+    // Add default option
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = defaultText;
+    presetSelect.appendChild(defaultOption);
+
+    // Add user presets
+    Object.entries(userPresets).forEach(([presetId, preset]) => {
+        const option = document.createElement('option');
+        option.value = presetId;
+        option.textContent = preset.name;
+        presetSelect.appendChild(option);
+    });
+}
+
 function toggleFavorite(selectType, code) {
     const favArray = userFavorites[selectType];
     const index = favArray.indexOf(code);
@@ -41,7 +213,6 @@ function toggleFavorite(selectType, code) {
     populateSelects();
 }
 
-// Create option element with star button
 function createOptionWithStar(value, text, type, isFavorite = false) {
     const option = document.createElement('option');
     option.value = value;
@@ -52,7 +223,6 @@ function createOptionWithStar(value, text, type, isFavorite = false) {
     return option;
 }
 
-// Populate select elements with languages/countries
 function populateSelects() {
     // Save current selections
     const currentHl = document.getElementById('hlSelect').value;
@@ -208,7 +378,6 @@ function populateCountrySelects() {
     });
 }
 
-// Add star button handlers
 function addStarButtonHandlers() {
     // HL star button
     const hlStar = document.getElementById('hlStar');
@@ -275,7 +444,6 @@ function addStarButtonHandlers() {
     }
 }
 
-// Update star button states
 function updateStarButtons() {
     // HL star
     const hlSelect = document.getElementById('hlSelect');
@@ -350,11 +518,15 @@ function addSelectChangeHandlers() {
 
 // Initialize i18n and tab info
 document.addEventListener('DOMContentLoaded', async () => {
-    // Load favorites first
+    // Load favorites and presets first
     await loadFavorites();
+    await loadPresets();
 
     // Populate selects with favorites
     populateSelects();
+
+    // Populate presets dropdown
+    populatePresets();
 
     // Add star button handlers
     addStarButtonHandlers();
@@ -369,52 +541,62 @@ document.addEventListener('DOMContentLoaded', async () => {
         element.textContent = message;
     });
 
-    // 현재 탭 정보 가져오기
+    // Get current tab info
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    const currentTab = tabs[0];
+        const currentTab = tabs[0];
 
-    // Google 검색 페이지인지 확인
-    if (!currentTab.url.includes('google.co')) {
+        // Check if it's a Google page
+        if (!currentTab.url.includes('google.co')) {
+            document.getElementById('currentSettings').textContent =
+                chrome.i18n.getMessage('notGooglePage');
+            return;
+        }
+
+        // extract current parameters
+        const url = new URL(currentTab.url);
+        const currentHl = url.searchParams.get('hl') || '';
+        const currentGl = url.searchParams.get('gl') || '';
+        const currentLr = url.searchParams.get('lr') || '';
+        const currentCr = url.searchParams.get('cr') || '';
+
+        // current setttings
+        const defaultValue = chrome.i18n.getMessage('defaultValue');
+        const displayHl = currentHl || defaultValue;
+        const displayGl = currentGl || defaultValue;
+        const displayLr = currentLr || defaultValue;
+        const displayCr = currentCr || defaultValue;
+
         document.getElementById('currentSettings').textContent =
-            chrome.i18n.getMessage('notGooglePage');
-        return;
-    }
+            chrome.i18n.getMessage('currentSettings', [displayHl, displayGl, displayLr, displayCr]);
 
-    // 현재 URL에서 모든 파라미터 추출
-    const url = new URL(currentTab.url);
-    const currentHl = url.searchParams.get('hl') || '';
-    const currentGl = url.searchParams.get('gl') || '';
-    const currentLr = url.searchParams.get('lr') || '';
-    const currentCr = url.searchParams.get('cr') || '';
+        const hlSelect = document.getElementById('hlSelect');
+        const glSelect = document.getElementById('glSelect');
+        const lrSelect = document.getElementById('lrSelect');
+        const crSelect = document.getElementById('crSelect');
 
-    // 현재 설정 표시 (사용자 친화적으로)
-    const defaultValue = chrome.i18n.getMessage('defaultValue');
-    const displayHl = currentHl || defaultValue;
-    const displayGl = currentGl || defaultValue;
-    const displayLr = currentLr || defaultValue;
-    const displayCr = currentCr || defaultValue;
+        // Add unknown values to dropdowns if needed
+        addUnknownValueOption(hlSelect, currentHl, LANGUAGES);
+        addUnknownValueOption(glSelect, currentGl, COUNTRIES);
+        addUnknownValueOption(lrSelect, currentLr, LR_LANGUAGES);
+        addUnknownValueOption(crSelect, currentCr, CR_COUNTRIES);
 
-    document.getElementById('currentSettings').textContent =
-        chrome.i18n.getMessage('currentSettings', [displayHl, displayGl, displayLr, displayCr]);
+        // Set current values in dropdowns
+        hlSelect.value = currentHl;
+        glSelect.value = currentGl;
+        lrSelect.value = currentLr;
+        crSelect.value = currentCr;
 
-    // 현재 탭의 설정을 셀렉트 박스에 반영
-    document.getElementById('hlSelect').value = currentHl;
-    document.getElementById('glSelect').value = currentGl;
-    document.getElementById('lrSelect').value = currentLr;
-    document.getElementById('crSelect').value = currentCr;
-
-    // Update star button states
-    updateStarButtons();
+        updateStarButtons();
     });
 
-    // 적용 버튼 클릭 이벤트
+    // Buttons
+
     document.getElementById('applyBtn').addEventListener('click', () => {
         const hl = document.getElementById('hlSelect').value;
         const gl = document.getElementById('glSelect').value;
         const lr = document.getElementById('lrSelect').value;
         const cr = document.getElementById('crSelect').value;
 
-        // 현재 탭에 메시지 전송
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             chrome.tabs.sendMessage(tabs[0].id, {
                 action: 'updateParams',
@@ -424,22 +606,68 @@ document.addEventListener('DOMContentLoaded', async () => {
                 cr: cr
             }, (response) => {
                 if (response && response.success) {
-                    window.close(); // 팝업 닫기
+                    window.close();
                 }
             });
         });
     });
 
-    // 초기화 버튼 클릭 이벤트 (모든 파라미터 제거)
     document.getElementById('resetBtn').addEventListener('click', () => {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             chrome.tabs.sendMessage(tabs[0].id, {
                 action: 'resetParams'
             }, (response) => {
                 if (response && response.success) {
-                    window.close(); // 팝업 닫기
+                    window.close();
                 }
             });
         });
+    });
+
+    // Preset section
+    document.getElementById('presetSelect').addEventListener('change', (e) => {
+        const presetId = e.target.value;
+        if (presetId) {
+            applyPreset(presetId);
+        }
+    });
+    document.getElementById('savePresetBtn').addEventListener('click', () => {
+        showPresetModal();
+    });
+    document.getElementById('deletePresetBtn').addEventListener('click', () => {
+        showDeleteModal();
+    });
+
+    // Preset save modal
+    document.getElementById('presetSaveBtn').addEventListener('click', () => {
+        saveCurrentAsPreset();
+    });
+    document.getElementById('presetCancelBtn').addEventListener('click', () => {
+        hidePresetModal();
+    });
+    document.getElementById('presetNameInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            saveCurrentAsPreset();
+        } else if (e.key === 'Escape') {
+            hidePresetModal();
+        }
+    });
+    document.getElementById('presetModal').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('presetModal')) {
+            hidePresetModal();
+        }
+    });
+
+    // Preset delete modal
+    document.getElementById('deleteConfirmBtn').addEventListener('click', () => {
+        deleteSelectedPreset();
+    });
+    document.getElementById('deleteCancelBtn').addEventListener('click', () => {
+        hideDeleteModal();
+    });
+    document.getElementById('deleteModal').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('deleteModal')) {
+            hideDeleteModal();
+        }
     });
 });
