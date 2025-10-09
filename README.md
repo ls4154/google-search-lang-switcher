@@ -1,12 +1,19 @@
 # Google Search Language Switcher
 
-Easily change Google search language and region parameters.
+Easily customize language and region settings for Google Search to get better localized results.
 
-**Supported Parameters:**
-- `hl` - Interface language
-- `gl` - Search region
-- `lr` - Language restriction
-- `cr` - Country restriction
+## Supported Parameters
+- **Interface Language (hl)**: Set the language for Google's search interface
+- **Geolocation (gl)**: Control which region's results you see
+- **Language Restrict (lr)**: Filter results to specific languages
+- **Country Restrict (cr)**: Filter results to specific countries
+
+## Features
+- **Multiple Language Selection**: Search across multiple languages simultaneously (e.g., `lang_en|lang_ko`)
+- **Exclude Languages**: Exclude specific languages from results (e.g., `-lang_ja`)
+- **Quick Presets**: Save your favorite settings and switch between them instantly
+- **Keyboard Shortcut**: Press `Alt+Shift+L` to cycle through your presets
+- **Favorites**: Star frequently used languages and countries for quick access
 
 ## Install
 
