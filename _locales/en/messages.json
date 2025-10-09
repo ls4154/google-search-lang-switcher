@@ -27,10 +27,10 @@
     "message": "⚠️ Please use this on Google search pages"
   },
   "languageLabel": {
-    "message": "Language (hl):"
+    "message": "Interface Language (hl):"
   },
   "regionLabel": {
-    "message": "Region (gl):"
+    "message": "Geolocation (gl):"
   },
   "languageRestrictLabel": {
     "message": "Language Restriction (lr):"
@@ -50,6 +50,9 @@
   "presetLabel": {
     "message": "Quick Presets:"
   },
+  "presetCycleHint": {
+    "message": "Alt+Shift+L to cycle"
+  },
   "selectPreset": {
     "message": "Select preset..."
   },
@@ -67,5 +70,23 @@
   },
   "delete": {
     "message": "Delete"
+  },
+  "advancedMode": {
+    "message": "Advanced"
+  },
+  "advancedModeTooltip": {
+    "message": "Enable advanced mode for LR/CR"
+  },
+  "excludeLanguage": {
+    "message": "Exclude"
+  },
+  "excludeLanguageTooltip": {
+    "message": "Exclude selected language"
+  },
+  "excludeCountry": {
+    "message": "Exclude"
+  },
+  "excludeCountryTooltip": {
+    "message": "Exclude selected country"
   }
 }

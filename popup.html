@@ -36,6 +36,10 @@
             background: white;
             height: 40px;
             line-height: 1.2;
+            font-family: inherit;
+            font-weight: 400;
+            color: #202124;
+            box-sizing: border-box;
         }
 
         select option {
@@ -142,6 +146,12 @@
             border-radius: 8px;
             padding: 10px;
             margin-bottom: 12px;
+        }
+
+        .hint {
+            font-size: 11px;
+            color: #999;
+            font-weight: 400;
         }
 
         .preset-btn {
@@ -263,6 +273,127 @@
         #deleteConfirmBtn:hover {
             background: #b52d20;
         }
+
+        .multi-select {
+            position: relative;
+            width: 260px;
+        }
+
+        .multi-select-display {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #dadce0;
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+            font-size: 14px;
+            height: 40px;
+            line-height: 1.2;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-family: inherit;
+            font-weight: 400;
+            color: #202124;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .multi-select-display:hover {
+            border-color: #1a73e8;
+        }
+
+        .multi-select-arrow {
+            width: 0;
+            height: 0;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-top: 4px solid #5f6368;
+            margin-left: 8px;
+        }
+
+        .multi-select-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 280px;
+            background: white;
+            border: 1px solid #dadce0;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            max-height: 300px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            z-index: 100;
+            display: none;
+        }
+
+        .multi-select-option {
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+        }
+
+        .multi-select-option:hover {
+            background: #f8f9fa;
+        }
+
+        .multi-select-option input[type="checkbox"] {
+            margin-right: 8px;
+        }
+
+
+        .advanced-toggle-container {
+            display: flex;
+            align-items: center;
+            font-size: 10px;
+            color: #5f6368;
+            cursor: pointer;
+            user-select: none;
+            margin: 0;
+        }
+
+        .advanced-toggle-checkbox {
+            margin: 0 2px 0 0;
+            cursor: pointer;
+            transform: scale(0.8);
+        }
+
+        .advanced-toggle-text {
+            font-size: 9px;
+            white-space: nowrap;
+        }
+
+        .exclude-toggle-container {
+            display: flex;
+            align-items: center;
+            font-size: 10px;
+            color: #5f6368;
+            cursor: pointer;
+            user-select: none;
+            margin: 0 2px;
+        }
+
+        .exclude-toggle-checkbox {
+            margin: 0 2px 0 0;
+            cursor: pointer;
+            transform: scale(0.8);
+        }
+
+        .exclude-toggle-checkbox:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+
+        .exclude-toggle-text {
+            font-size: 9px;
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body>
@@ -273,7 +404,10 @@
     </div>
 
     <div class="preset-section">
-        <label for="presetSelect" data-i18n="presetLabel">Quick Presets:</label>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label for="presetSelect" style="margin-bottom: 0;" data-i18n="presetLabel">Quick Presets:</label>
+            <span class="hint" data-i18n="presetCycleHint">Alt+Shift+L to cycle</span>
+        </div>
         <div style="display: flex; align-items: center;">
             <select id="presetSelect" style="width: calc(100% - 48px); margin-right: 4px;">
                 <option value="" data-i18n="selectPreset">Select preset...</option>
@@ -320,11 +454,30 @@
     </div>
 
     <div class="form-group">
-        <label for="lrSelect" data-i18n="languageRestrictLabel">Language Restrict (lr):</label>
-        <div style="display: flex; align-items: center;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label for="lrSelect" data-i18n="languageRestrictLabel">Language Restrict (lr):</label>
+            <label class="advanced-toggle-container" data-i18n-title="advancedModeTooltip">
+                <input type="checkbox" id="advancedToggle" class="advanced-toggle-checkbox">
+                <span class="advanced-toggle-text" data-i18n="advancedMode">Advanced</span>
+            </label>
+        </div>
+        <div style="display: flex; align-items: center; gap: 4px;">
             <select id="lrSelect" style="width: 260px;">
                 <option value="" data-i18n="defaultValue"></option>
             </select>
+            <div class="multi-select" id="lrMultiSelect" style="width: 220px; display: none;">
+                <div class="multi-select-display" id="lrDisplay">
+                    <span data-i18n="defaultValue">Default</span>
+                    <div class="multi-select-arrow"></div>
+                </div>
+                <div class="multi-select-dropdown" id="lrDropdown">
+                    <!-- Options will be populated by JavaScript -->
+                </div>
+            </div>
+            <label class="exclude-toggle-container" data-i18n-title="excludeLanguageTooltip" style="display: none;">
+                <input type="checkbox" id="lrExclude" class="exclude-toggle-checkbox" disabled>
+                <span class="exclude-toggle-text" data-i18n="excludeLanguage">제외</span>
+            </label>
             <button id="lrStar" class="star-button inactive" type="button" title="Add to favorites">
                 <svg class="star-svg" viewBox="0 0 24 24">
                     <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
@@ -335,10 +488,23 @@
 
     <div class="form-group">
         <label for="crSelect" data-i18n="countryRestrictLabel">Country Restrict (cr):</label>
-        <div style="display: flex; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 4px;">
             <select id="crSelect" style="width: 260px;">
                 <option value="" data-i18n="defaultValue"></option>
             </select>
+            <div class="multi-select" id="crMultiSelect" style="width: 220px; display: none;">
+                <div class="multi-select-display" id="crDisplay">
+                    <span data-i18n="defaultValue">Default</span>
+                    <div class="multi-select-arrow"></div>
+                </div>
+                <div class="multi-select-dropdown" id="crDropdown">
+                    <!-- Options will be populated by JavaScript -->
+                </div>
+            </div>
+            <label class="exclude-toggle-container" data-i18n-title="excludeCountryTooltip" style="display: none;">
+                <input type="checkbox" id="crExclude" class="exclude-toggle-checkbox" disabled>
+                <span class="exclude-toggle-text" data-i18n="excludeCountry">제외</span>
+            </label>
             <button id="crStar" class="star-button inactive" type="button" title="Add to favorites">
                 <svg class="star-svg" viewBox="0 0 24 24">
                     <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>

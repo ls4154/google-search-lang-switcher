@@ -1,4 +1,4 @@
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     if (request.action === 'updateParams') {
         updateUrlParams(request.hl, request.gl, request.lr, request.cr);
         sendResponse({ success: true });
@@ -35,18 +35,9 @@ function updateUrlParams(hl, gl, lr, cr) {
         url.searchParams.delete('cr');
     }
 
-    // refresh
     window.location.href = url.toString();
 }
 
 function resetUrlParams() {
-    const url = new URL(window.location.href);
-
-    url.searchParams.delete('hl');
-    url.searchParams.delete('gl');
-    url.searchParams.delete('lr');
-    url.searchParams.delete('cr');
-
-    // refresh
-    window.location.href = url.toString();
+    updateUrlParams(null, null, null, null);
 }

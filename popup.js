@@ -7,13 +7,16 @@ let userFavorites = {
 
 let userPresets = {};
 
+// Multi-select instances
+let lrMultiSelect = null;
+let crMultiSelect = null;
+
 async function loadFavorites() {
     return new Promise((resolve) => {
         chrome.storage.sync.get(['favorites'], (result) => {
             if (result.favorites) {
                 userFavorites = result.favorites;
             } else {
-                // Use default favorites for first-time
                 userFavorites = DEFAULT_FAVORITES;
             }
             resolve();
@@ -31,8 +34,8 @@ async function loadPresets() {
             if (result.presets) {
                 userPresets = result.presets;
             } else {
-                // Use default presets for first-time
                 userPresets = DEFAULT_PRESETS;
+                chrome.storage.sync.set({ presets: DEFAULT_PRESETS });
             }
             resolve();
         });
@@ -43,6 +46,59 @@ function savePresets() {
     chrome.storage.sync.set({ presets: userPresets });
 }
 
+// Update UI elements with parameter values
+function updateUIWithParams(hl, gl, lr, cr) {
+    const hlSelect = document.getElementById('hlSelect');
+    const glSelect = document.getElementById('glSelect');
+    const lrSelect = document.getElementById('lrSelect');
+    const crSelect = document.getElementById('crSelect');
+
+    addUnknownValueOption(hlSelect, hl, LANGUAGES);
+    addUnknownValueOption(glSelect, gl, COUNTRIES);
+    hlSelect.value = hl || '';
+    glSelect.value = gl || '';
+
+    if (document.getElementById('advancedToggle').checked) {
+        const lrParsed = parseGoogleParam(lr || '');
+        lrMultiSelect.setValue(lrParsed.values);
+        const crParsed = parseGoogleParam(cr || '');
+        crMultiSelect.setValue(crParsed.values);
+    } else {
+        addUnknownValueOption(lrSelect, lr, LR_LANGUAGES);
+        addUnknownValueOption(crSelect, cr, CR_COUNTRIES);
+        lrSelect.value = lr || '';
+        crSelect.value = cr || '';
+    }
+
+    updateStarButtons();
+}
+
+// Get current selected parameter values
+function getCurrentParams() {
+    const hl = document.getElementById('hlSelect').value;
+    const gl = document.getElementById('glSelect').value;
+
+    let lr, cr;
+    if (document.getElementById('advancedToggle').checked) {
+        const lrValues = lrMultiSelect.getValue();
+        const crValues = crMultiSelect.getValue();
+
+        const lrExclude = document.getElementById('lrExclude')?.checked || false;
+        const crExclude = document.getElementById('crExclude')?.checked || false;
+
+        const lrParsed = { values: lrValues, isExclude: lrExclude };
+        const crParsed = { values: crValues, isExclude: crExclude };
+
+        lr = encodeGoogleParam(lrParsed);
+        cr = encodeGoogleParam(crParsed);
+    } else {
+        lr = document.getElementById('lrSelect').value;
+        cr = document.getElementById('crSelect').value;
+    }
+
+    return { hl, gl, lr, cr };
+}
+
 // Apply preset to current settings
 function applyPreset(presetId) {
     if (!userPresets[presetId]) return;
@@ -50,33 +106,15 @@ function applyPreset(presetId) {
     const preset = userPresets[presetId];
     const params = preset.params;
 
-    // Get dropdown elements
-    const hlSelect = document.getElementById('hlSelect');
-    const glSelect = document.getElementById('glSelect');
-    const lrSelect = document.getElementById('lrSelect');
-    const crSelect = document.getElementById('crSelect');
+    // Auto-activate Advanced mode for OR values
+    autoActivateAdvancedMode(params.lr || '', params.cr || '');
 
-    // Add unknown values to dropdowns if needed
-    addUnknownValueOption(hlSelect, params.hl, LANGUAGES);
-    addUnknownValueOption(glSelect, params.gl, COUNTRIES);
-    addUnknownValueOption(lrSelect, params.lr, LR_LANGUAGES);
-    addUnknownValueOption(crSelect, params.cr, CR_COUNTRIES);
-
-    // Update dropdowns
-    hlSelect.value = params.hl || '';
-    glSelect.value = params.gl || '';
-    lrSelect.value = params.lr || '';
-    crSelect.value = params.cr || '';
-
-    updateStarButtons();
+    updateUIWithParams(params.hl, params.gl, params.lr, params.cr);
 }
 
 // Show custom modal for preset name input
 function showPresetModal() {
-    const hlValue = document.getElementById('hlSelect').value;
-    const glValue = document.getElementById('glSelect').value;
-    const lrValue = document.getElementById('lrSelect').value;
-    const crValue = document.getElementById('crSelect').value;
+    const { hl: hlValue, gl: glValue, lr: lrValue, cr: crValue } = getCurrentParams();
 
     // Generate suggested name
     const hlName = hlValue ? (LANGUAGES[hlValue] || hlValue) : 'Default';
@@ -102,10 +140,7 @@ function saveCurrentAsPreset() {
 
     if (!presetName) return;
 
-    const hlValue = document.getElementById('hlSelect').value;
-    const glValue = document.getElementById('glSelect').value;
-    const lrValue = document.getElementById('lrSelect').value;
-    const crValue = document.getElementById('crSelect').value;
+    const { hl: hlValue, gl: glValue, lr: lrValue, cr: crValue } = getCurrentParams();
 
     // Generate unique ID
     const presetId = 'preset_' + Date.now();
@@ -137,7 +172,24 @@ function hidePresetModal() {
 
 // Add unknown value as option at the end of list
 function addUnknownValueOption(selectElement, value, knownValues) {
-    if (!value || knownValues[value]) return; // Skip if empty or known
+    if (!value) return; // Skip if empty
+
+    const parsed = parseGoogleParam(value);
+
+    // If this is an exclude value, don't add it as custom option in regular select
+    // It will be handled by Advanced mode
+    if (parsed.isExclude) return;
+
+    // For multi-value, check if any value is unknown
+    if (parsed.values.length > 1) {
+        // Multi-value will be handled by Advanced mode
+        return;
+    }
+
+    // Check if single value is known
+    if (parsed.values.length === 1 && knownValues[parsed.values[0]]) return;
+
+    if (knownValues[value]) return; // Skip if original value is known
 
     const option = document.createElement('option');
     option.value = value;
@@ -148,6 +200,234 @@ function addUnknownValueOption(selectElement, value, knownValues) {
 
     // Add at the end to clearly separate from regular options
     selectElement.appendChild(option);
+}
+
+// Multi-select functionality
+class MultiSelect {
+    constructor(containerId, options, type) {
+        this.container = document.getElementById(containerId);
+        this.display = this.container.querySelector('.multi-select-display span');
+        this.dropdown = this.container.querySelector('.multi-select-dropdown');
+        this.options = options;
+        this.type = type;
+        this.selectedValues = new Set();
+
+        this.init();
+    }
+
+    init() {
+        // Add search input to dropdown
+        this.createSearchInput();
+
+        // Populate dropdown options
+        this.populateDropdown();
+
+        // Add event listeners
+        this.container.querySelector('.multi-select-display').addEventListener('click', () => {
+            this.toggleDropdown();
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!this.container.contains(e.target)) {
+                this.closeDropdown();
+            }
+        });
+    }
+
+    createSearchInput() {
+        this.searchInput = document.createElement('input');
+        this.searchInput.type = 'text';
+        this.searchInput.className = 'multi-select-search';
+        this.searchInput.placeholder = 'Type to search...';
+        this.searchInput.style.cssText = `
+            width: calc(100% - 16px);
+            margin: 4px 8px;
+            padding: 6px 8px;
+            border: 1px solid #dadce0;
+            border-radius: 3px;
+            font-size: 12px;
+            outline: none;
+        `;
+
+        this.searchInput.addEventListener('input', (e) => {
+            this.filterOptions(e.target.value);
+        });
+
+        // Prevent dropdown from closing when clicking on search input
+        this.searchInput.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+    }
+
+    populateDropdown(searchTerm = '') {
+        // Clear dropdown but keep search input
+        while (this.dropdown.children.length > 1) {
+            this.dropdown.removeChild(this.dropdown.lastChild);
+        }
+
+        // Add search input if not already present
+        if (!this.dropdown.querySelector('.multi-select-search')) {
+            this.dropdown.appendChild(this.searchInput);
+        }
+
+        const favorites = userFavorites[this.type] || [];
+        const filteredFavorites = favorites.filter(value =>
+            this.options[value] && this.matchesSearch(value, this.options[value], searchTerm)
+        );
+
+        // Add favorites first if any match search
+        if (filteredFavorites.length > 0) {
+            filteredFavorites.forEach(value => {
+                this.addOption(value, this.options[value], true);
+            });
+
+            // Add separator
+            const separator = document.createElement('div');
+            separator.style.borderBottom = '1px solid #dadce0';
+            separator.style.margin = '4px 0';
+            this.dropdown.appendChild(separator);
+        }
+
+        // Add all other options that match search
+        Object.entries(this.options).forEach(([value, name]) => {
+            if (!favorites.includes(value) && this.matchesSearch(value, name, searchTerm)) {
+                this.addOption(value, name, false);
+            }
+        });
+    }
+
+    matchesSearch(value, name, searchTerm) {
+        if (!searchTerm) return true;
+        const search = searchTerm.toLowerCase();
+        return name.toLowerCase().includes(search) || value.toLowerCase().includes(search);
+    }
+
+    filterOptions(searchTerm) {
+        this.populateDropdown(searchTerm);
+    }
+
+    addOption(value, name, isFavorite) {
+        const optionDiv = document.createElement('div');
+        optionDiv.className = 'multi-select-option';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = value;
+        checkbox.checked = this.selectedValues.has(value);
+
+        const label = document.createElement('span');
+        const displayText = `${name} - ${value}`;
+        label.textContent = isFavorite ? `⭐ ${displayText}` : displayText;
+
+        optionDiv.appendChild(checkbox);
+        optionDiv.appendChild(label);
+
+        // Handle checkbox change
+        checkbox.addEventListener('change', () => {
+            if (checkbox.checked) {
+                this.selectedValues.add(value);
+            } else {
+                this.selectedValues.delete(value);
+            }
+            this.updateDisplay();
+            this.updateHiddenSelect();
+            updateStarButtons();
+        });
+
+        this.dropdown.appendChild(optionDiv);
+    }
+
+    updateDisplay() {
+        const count = this.selectedValues.size;
+        const defaultText = chrome.i18n.getMessage('defaultValue') || 'Default';
+
+        if (count === 0) {
+            this.display.textContent = defaultText;
+        } else if (count === 1) {
+            const value = [...this.selectedValues][0];
+            const name = this.options[value] || value;
+            this.display.textContent = name;
+        } else {
+            const names = [...this.selectedValues].map(value => this.options[value] || value);
+            this.display.textContent = names.join(', ');
+        }
+    }
+
+    updateHiddenSelect() {
+        const hiddenSelect = document.getElementById(this.type + 'Select');
+        const joinedValue = [...this.selectedValues].join('|');
+        hiddenSelect.value = joinedValue;
+    }
+
+    setValue(values) {
+        this.selectedValues.clear();
+        if (Array.isArray(values)) {
+            values.forEach(v => this.selectedValues.add(v));
+        } else if (values) {
+            // Single value as string
+            this.selectedValues.add(values);
+        }
+        this.updateDisplay();
+        this.updateCheckboxes();
+        this.updateHiddenSelect();
+    }
+
+    updateCheckboxes() {
+        const checkboxes = this.dropdown.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = this.selectedValues.has(checkbox.value);
+        });
+    }
+
+    toggleDropdown() {
+        const isVisible = this.dropdown.style.display === 'block';
+        if (isVisible) {
+            this.closeDropdown();
+        } else {
+            this.dropdown.style.display = 'block';
+
+            // Calculate position and adjust dropdown direction
+            this.adjustDropdownPosition();
+
+            // Focus on search input and clear any existing search
+            setTimeout(() => {
+                this.searchInput.value = '';
+                this.searchInput.focus();
+                this.populateDropdown('');
+            }, 0);
+        }
+    }
+
+    adjustDropdownPosition() {
+        const containerRect = this.container.getBoundingClientRect();
+        const dropdownHeight = 200; // Estimated dropdown height
+        const viewportHeight = window.innerHeight;
+        const spaceBelow = viewportHeight - containerRect.bottom;
+        const spaceAbove = containerRect.top;
+
+        // Reset any previous positioning
+        this.dropdown.style.top = '';
+        this.dropdown.style.bottom = '';
+
+        // If not enough space below but more space above, open upward
+        if (spaceBelow < dropdownHeight && spaceAbove > spaceBelow) {
+            this.dropdown.style.bottom = '100%';
+            this.dropdown.style.top = 'auto';
+        } else {
+            // Default: open downward
+            this.dropdown.style.top = '100%';
+            this.dropdown.style.bottom = 'auto';
+        }
+    }
+
+    closeDropdown() {
+        this.dropdown.style.display = 'none';
+    }
+
+    getValue() {
+        return [...this.selectedValues];
+    }
 }
 
 function showDeleteModal() {
@@ -381,128 +661,208 @@ function populateCountrySelects() {
 function addStarButtonHandlers() {
     // HL star button
     const hlStar = document.getElementById('hlStar');
-    if (hlStar) {
-        hlStar.addEventListener('click', () => {
-            const hlSelect = document.getElementById('hlSelect');
-            const selectedOption = hlSelect.options[hlSelect.selectedIndex];
-            if (selectedOption && selectedOption.value) {
-                let code = selectedOption.value;
-                if (LANGUAGES[code]) {
-                    toggleFavorite('hl', code);
-                    updateStarButtons();
-                }
+    hlStar.addEventListener('click', () => {
+        const hlSelect = document.getElementById('hlSelect');
+        const hlSelectedOption = hlSelect.options[hlSelect.selectedIndex];
+        if (hlSelectedOption && hlSelectedOption.value) {
+            let hlCode = hlSelectedOption.value;
+            if (LANGUAGES[hlCode]) {
+                toggleFavorite('hl', hlCode);
+                updateStarButtons();
             }
-        });
-    }
+        }
+    });
 
     // LR star button
     const lrStar = document.getElementById('lrStar');
-    if (lrStar) {
-        lrStar.addEventListener('click', () => {
-            const lrSelect = document.getElementById('lrSelect');
-            const selectedOption = lrSelect.options[lrSelect.selectedIndex];
-            if (selectedOption && selectedOption.value) {
-                let langCode = selectedOption.value;
-                if (LR_LANGUAGES[langCode]) {
-                    toggleFavorite('lr', langCode);
+    lrStar.addEventListener('click', () => {
+        const lrHandlerIsAdvanced = document.getElementById('advancedToggle')?.checked;
+
+        if (lrHandlerIsAdvanced) {
+            // Advanced mode - use multi-select
+            if (lrMultiSelect && lrMultiSelect.selectedValues.size === 1) {
+                const selectedValue = [...lrMultiSelect.selectedValues][0];
+                if (LR_LANGUAGES[selectedValue]) {
+                    toggleFavorite('lr', selectedValue);
                     updateStarButtons();
                 }
             }
-        });
-    }
+        } else {
+            // Regular mode - use regular select
+            const lrSelect = document.getElementById('lrSelect');
+            const lrSelectedOption = lrSelect.options[lrSelect.selectedIndex];
+            if (lrSelectedOption && lrSelectedOption.value) {
+                const lrHandlerCode = lrSelectedOption.value;
+                if (LR_LANGUAGES[lrHandlerCode]) {
+                    toggleFavorite('lr', lrHandlerCode);
+                    updateStarButtons();
+                }
+            }
+        }
+    });
 
     // GL star button
     const glStar = document.getElementById('glStar');
-    if (glStar) {
-        glStar.addEventListener('click', () => {
-            const glSelect = document.getElementById('glSelect');
-            const selectedOption = glSelect.options[glSelect.selectedIndex];
-            if (selectedOption && selectedOption.value) {
-                let code = selectedOption.value;
-                if (COUNTRIES[code]) {
-                    toggleFavorite('gl', code);
-                    updateStarButtons();
-                }
+    glStar.addEventListener('click', () => {
+        const glSelect = document.getElementById('glSelect');
+        const glSelectedOption = glSelect.options[glSelect.selectedIndex];
+        if (glSelectedOption && glSelectedOption.value) {
+            let glCode = glSelectedOption.value;
+            if (COUNTRIES[glCode]) {
+                toggleFavorite('gl', glCode);
+                updateStarButtons();
             }
-        });
-    }
+        }
+    });
 
     // CR star button
     const crStar = document.getElementById('crStar');
-    if (crStar) {
-        crStar.addEventListener('click', () => {
-            const crSelect = document.getElementById('crSelect');
-            const selectedOption = crSelect.options[crSelect.selectedIndex];
-            if (selectedOption && selectedOption.value) {
-                let countryCode = selectedOption.value;
-                if (CR_COUNTRIES[countryCode]) {
-                    toggleFavorite('cr', countryCode);
+    crStar.addEventListener('click', () => {
+        const crHandlerIsAdvanced = document.getElementById('advancedToggle')?.checked;
+
+        if (crHandlerIsAdvanced) {
+            // Advanced mode - use multi-select
+            if (crMultiSelect && crMultiSelect.selectedValues.size === 1) {
+                const selectedValue = [...crMultiSelect.selectedValues][0];
+                if (CR_COUNTRIES[selectedValue]) {
+                    toggleFavorite('cr', selectedValue);
                     updateStarButtons();
                 }
             }
-        });
-    }
+        } else {
+            // Regular mode - use regular select
+            const crSelect = document.getElementById('crSelect');
+            const crSelectedOption = crSelect.options[crSelect.selectedIndex];
+            if (crSelectedOption && crSelectedOption.value) {
+                const crHandlerCode = crSelectedOption.value;
+                if (CR_COUNTRIES[crHandlerCode]) {
+                    toggleFavorite('cr', crHandlerCode);
+                    updateStarButtons();
+                }
+            }
+        }
+    });
 }
 
 function updateStarButtons() {
     // HL star
     const hlSelect = document.getElementById('hlSelect');
     const hlStar = document.getElementById('hlStar');
-    if (hlSelect && hlStar) {
-        const selectedOption = hlSelect.options[hlSelect.selectedIndex];
-        const code = selectedOption?.value;
-        if (code && LANGUAGES[code] && userFavorites.hl.includes(code)) {
-            hlStar.classList.remove('inactive');
-            hlStar.title = 'Remove from favorites';
-        } else {
-            hlStar.classList.add('inactive');
-            hlStar.title = 'Add to favorites';
-        }
+    const hlSelectedOption = hlSelect.options[hlSelect.selectedIndex];
+    const hlCode = hlSelectedOption?.value;
+    if (hlCode && LANGUAGES[hlCode] && userFavorites.hl.includes(hlCode)) {
+        hlStar.classList.remove('inactive');
+        hlStar.title = 'Remove from favorites';
+    } else {
+        hlStar.classList.add('inactive');
+        hlStar.title = 'Add to favorites';
     }
 
-    // LR star
-    const lrSelect = document.getElementById('lrSelect');
+    // LR star (check both regular and multi-select modes)
     const lrStar = document.getElementById('lrStar');
-    if (lrSelect && lrStar) {
-        const selectedOption = lrSelect.options[lrSelect.selectedIndex];
-        const langCode = selectedOption?.value;
-        if (langCode && userFavorites.lr.includes(langCode)) {
+    const lrIsAdvanced = document.getElementById('advancedToggle')?.checked;
+
+    if (lrIsAdvanced) {
+        // Advanced mode
+        if (lrMultiSelect && lrMultiSelect.selectedValues.size > 1) {
+            // Multiple selections - disable star
+            lrStar.classList.add('inactive');
+            lrStar.title = 'Use presets for multiple selections';
+            lrStar.style.opacity = '0.5';
+            lrStar.style.cursor = 'not-allowed';
+        } else if (lrMultiSelect && lrMultiSelect.selectedValues.size === 1) {
+            // Single selection - check if favorite
+            const selectedValue = [...lrMultiSelect.selectedValues][0];
+            if (userFavorites.lr.includes(selectedValue)) {
+                lrStar.classList.remove('inactive');
+                lrStar.title = 'Remove from favorites';
+            } else {
+                lrStar.classList.add('inactive');
+                lrStar.title = 'Add to favorites';
+            }
+            lrStar.style.opacity = '1';
+            lrStar.style.cursor = 'pointer';
+        } else {
+            // No selection
+            lrStar.classList.add('inactive');
+            lrStar.title = 'Add to favorites';
+            lrStar.style.opacity = '1';
+            lrStar.style.cursor = 'pointer';
+        }
+    } else {
+        // Regular mode
+        const lrSelect = document.getElementById('lrSelect');
+        const lrSelectedOption = lrSelect.options[lrSelect.selectedIndex];
+        const lrCode = lrSelectedOption?.value;
+        if (lrCode && LR_LANGUAGES[lrCode] && userFavorites.lr.includes(lrCode)) {
             lrStar.classList.remove('inactive');
             lrStar.title = 'Remove from favorites';
         } else {
             lrStar.classList.add('inactive');
             lrStar.title = 'Add to favorites';
         }
+        lrStar.style.opacity = '1';
+        lrStar.style.cursor = 'pointer';
     }
 
     // GL star
     const glSelect = document.getElementById('glSelect');
     const glStar = document.getElementById('glStar');
-    if (glSelect && glStar) {
-        const selectedOption = glSelect.options[glSelect.selectedIndex];
-        const code = selectedOption?.value;
-        if (code && COUNTRIES[code] && userFavorites.gl.includes(code)) {
-            glStar.classList.remove('inactive');
-            glStar.title = 'Remove from favorites';
-        } else {
-            glStar.classList.add('inactive');
-            glStar.title = 'Add to favorites';
-        }
+    const glSelectedOption = glSelect.options[glSelect.selectedIndex];
+    const glCode = glSelectedOption?.value;
+    if (glCode && COUNTRIES[glCode] && userFavorites.gl.includes(glCode)) {
+        glStar.classList.remove('inactive');
+        glStar.title = 'Remove from favorites';
+    } else {
+        glStar.classList.add('inactive');
+        glStar.title = 'Add to favorites';
     }
 
-    // CR star
-    const crSelect = document.getElementById('crSelect');
+    // CR star (check both regular and multi-select modes)
     const crStar = document.getElementById('crStar');
-    if (crSelect && crStar) {
-        const selectedOption = crSelect.options[crSelect.selectedIndex];
-        const countryCode = selectedOption?.value;
-        if (countryCode && userFavorites.cr.includes(countryCode)) {
+    const crIsAdvanced = document.getElementById('advancedToggle')?.checked;
+
+    if (crIsAdvanced) {
+        // Advanced mode
+        if (crMultiSelect && crMultiSelect.selectedValues.size > 1) {
+            // Multiple selections - disable star
+            crStar.classList.add('inactive');
+            crStar.title = 'Use presets for multiple selections';
+            crStar.style.opacity = '0.5';
+            crStar.style.cursor = 'not-allowed';
+        } else if (crMultiSelect && crMultiSelect.selectedValues.size === 1) {
+            // Single selection - check if favorite
+            const selectedValue = [...crMultiSelect.selectedValues][0];
+            if (userFavorites.cr.includes(selectedValue)) {
+                crStar.classList.remove('inactive');
+                crStar.title = 'Remove from favorites';
+            } else {
+                crStar.classList.add('inactive');
+                crStar.title = 'Add to favorites';
+            }
+            crStar.style.opacity = '1';
+            crStar.style.cursor = 'pointer';
+        } else {
+            // No selection
+            crStar.classList.add('inactive');
+            crStar.title = 'Add to favorites';
+            crStar.style.opacity = '1';
+            crStar.style.cursor = 'pointer';
+        }
+    } else {
+        // Regular mode
+        const crSelect = document.getElementById('crSelect');
+        const crSelectedOption = crSelect.options[crSelect.selectedIndex];
+        const crCode = crSelectedOption?.value;
+        if (crCode && CR_COUNTRIES[crCode] && userFavorites.cr.includes(crCode)) {
             crStar.classList.remove('inactive');
             crStar.title = 'Remove from favorites';
         } else {
             crStar.classList.add('inactive');
             crStar.title = 'Add to favorites';
         }
+        crStar.style.opacity = '1';
+        crStar.style.cursor = 'pointer';
     }
 }
 
@@ -516,29 +876,169 @@ function addSelectChangeHandlers() {
     });
 }
 
-// Initialize i18n and tab info
+function addAdvancedToggleHandler() {
+    const advancedToggle = document.getElementById('advancedToggle');
+
+    if (advancedToggle) {
+        advancedToggle.addEventListener('change', () => {
+            const isAdvanced = advancedToggle.checked;
+            toggleAdvancedMode('lr', isAdvanced);
+            toggleAdvancedMode('cr', isAdvanced);
+        });
+    }
+}
+
+function toggleAdvancedMode(type, isAdvanced) {
+    const regularSelect = document.getElementById(type + 'Select');
+    const multiSelect = document.getElementById(type + 'MultiSelect');
+    const multiSelectInstance = type === 'lr' ? lrMultiSelect : crMultiSelect;
+    const excludeToggle = document.getElementById(type + 'Exclude');
+    const excludeContainer = excludeToggle?.parentElement;
+
+    if (isAdvanced) {
+        // Switch to multi-select mode
+        regularSelect.style.display = 'none';
+        multiSelect.style.display = 'block';
+
+        // Show and enable exclude toggle
+        if (excludeToggle) {
+            excludeToggle.disabled = false;
+            if (excludeContainer) excludeContainer.style.display = 'flex';
+        }
+
+        // Transfer current value to multi-select
+        const currentValue = regularSelect.value;
+        if (currentValue) {
+            // currentValue is a string, convert to single-item array
+            multiSelectInstance.setValue(currentValue ? [currentValue] : []);
+        }
+    } else {
+        // Switch to single select mode
+        multiSelect.style.display = 'none';
+        regularSelect.style.display = 'block';
+
+        // Hide and disable exclude toggle
+        if (excludeToggle) {
+            excludeToggle.disabled = true;
+            excludeToggle.checked = false;
+            if (excludeContainer) excludeContainer.style.display = 'none';
+        }
+
+        // Transfer first selected value back to regular select
+        const selectedValues = multiSelectInstance.selectedValues;
+        if (selectedValues.size > 0) {
+            const firstValue = [...selectedValues][0];
+            regularSelect.value = firstValue;
+        } else {
+            regularSelect.value = '';
+        }
+
+        // Clear multi-select
+        multiSelectInstance.setValue([]);
+    }
+
+    updateStarButtons();
+}
+
+function autoActivateAdvancedMode(lrValue, crValue) {
+    const lrParsed = parseGoogleParam(lrValue);
+    const crParsed = parseGoogleParam(crValue);
+
+    const needsAdvanced = (lrParsed.values.length > 1 || lrParsed.isExclude) ||
+        (crParsed.values.length > 1 || crParsed.isExclude);
+
+    if (needsAdvanced) {
+        const advancedToggle = document.getElementById('advancedToggle');
+        if (advancedToggle && !advancedToggle.checked) {
+            advancedToggle.checked = true;
+            toggleAdvancedMode('lr', true);
+            toggleAdvancedMode('cr', true);
+        }
+
+        setExcludeToggles(lrValue, crValue);
+    }
+}
+
+function setExcludeToggles(lrValue, crValue) {
+    const lrParsed = parseGoogleParam(lrValue);
+    const crParsed = parseGoogleParam(crValue);
+
+    const lrExclude = document.getElementById('lrExclude');
+    if (lrExclude) lrExclude.checked = lrParsed.isExclude;
+
+    const crExclude = document.getElementById('crExclude');
+    if (crExclude) crExclude.checked = crParsed.isExclude;
+}
+
+// Parse Google search parameter into structured format
+function parseGoogleParam(value) {
+    if (!value) {
+        return { values: [], isExclude: false };
+    }
+
+    let isExclude = false;
+    let cleanValue = value;
+
+    if (value.startsWith('-')) {
+        isExclude = true;
+        cleanValue = value.slice(1);
+    }
+
+    if (cleanValue.startsWith('(') && cleanValue.endsWith(')')) {
+        cleanValue = cleanValue.slice(1, -1);
+    }
+
+    const values = cleanValue ? cleanValue.split('|') : [];
+
+    return { values, isExclude };
+}
+
+// Encode structured format back to Google search parameter
+function encodeGoogleParam(parsedObj) {
+    if (!parsedObj || parsedObj.values.length === 0) {
+        return '';
+    }
+
+    const { values, isExclude } = parsedObj;
+    const joinedValues = values.join('|');
+
+    if (!isExclude) {
+        return joinedValues;
+    }
+
+    if (values.length === 1) {
+        return `-${joinedValues}`;
+    } else {
+        return `-(${joinedValues})`;
+    }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
-    // Load favorites and presets first
+    // Load favorites and presets
     await loadFavorites();
     await loadPresets();
-
-    // Populate selects with favorites
     populateSelects();
-
-    // Populate presets dropdown
     populatePresets();
 
-    // Add star button handlers
+    // Init multi-select dropdowns
+    lrMultiSelect = new MultiSelect('lrMultiSelect', LR_LANGUAGES, 'lr');
+    crMultiSelect = new MultiSelect('crMultiSelect', CR_COUNTRIES, 'cr');
+
+    // Add event handlers
     addStarButtonHandlers();
-
-    // Add select change handlers
     addSelectChangeHandlers();
+    addAdvancedToggleHandler();
 
-    // Replace all data-i18n elements
+    // i18n elements
     document.querySelectorAll('[data-i18n]').forEach(element => {
         const key = element.getAttribute('data-i18n');
         const message = chrome.i18n.getMessage(key);
         element.textContent = message;
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach(element => {
+        const key = element.getAttribute('data-i18n-title');
+        const message = chrome.i18n.getMessage(key);
+        element.title = message;
     });
 
     // Get current tab info
@@ -546,7 +1046,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const currentTab = tabs[0];
 
         // Check if it's a Google page
-        if (!currentTab.url.includes('google.co')) {
+        if (!currentTab.url || !currentTab.url.includes('google.com')) {
             document.getElementById('currentSettings').textContent =
                 chrome.i18n.getMessage('notGooglePage');
             return;
@@ -559,6 +1059,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const currentLr = url.searchParams.get('lr') || '';
         const currentCr = url.searchParams.get('cr') || '';
 
+        // Auto-activate Advanced mode for OR values
+        autoActivateAdvancedMode(currentLr, currentCr);
+
         // current setttings
         const defaultValue = chrome.i18n.getMessage('defaultValue');
         const displayHl = currentHl || defaultValue;
@@ -569,33 +1072,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('currentSettings').textContent =
             chrome.i18n.getMessage('currentSettings', [displayHl, displayGl, displayLr, displayCr]);
 
-        const hlSelect = document.getElementById('hlSelect');
-        const glSelect = document.getElementById('glSelect');
-        const lrSelect = document.getElementById('lrSelect');
-        const crSelect = document.getElementById('crSelect');
-
-        // Add unknown values to dropdowns if needed
-        addUnknownValueOption(hlSelect, currentHl, LANGUAGES);
-        addUnknownValueOption(glSelect, currentGl, COUNTRIES);
-        addUnknownValueOption(lrSelect, currentLr, LR_LANGUAGES);
-        addUnknownValueOption(crSelect, currentCr, CR_COUNTRIES);
-
-        // Set current values in dropdowns
-        hlSelect.value = currentHl;
-        glSelect.value = currentGl;
-        lrSelect.value = currentLr;
-        crSelect.value = currentCr;
-
-        updateStarButtons();
+        updateUIWithParams(currentHl, currentGl, currentLr, currentCr);
     });
 
     // Buttons
 
     document.getElementById('applyBtn').addEventListener('click', () => {
-        const hl = document.getElementById('hlSelect').value;
-        const gl = document.getElementById('glSelect').value;
-        const lr = document.getElementById('lrSelect').value;
-        const cr = document.getElementById('crSelect').value;
+        const { hl, gl, lr, cr } = getCurrentParams();
 
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             chrome.tabs.sendMessage(tabs[0].id, {

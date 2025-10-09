@@ -27,7 +27,7 @@
     "message": "⚠️ 구글 검색 페이지에서 사용해주세요"
   },
   "languageLabel": {
-    "message": "언어 (hl):"
+    "message": "인터페이스 언어 (hl):"
   },
   "regionLabel": {
     "message": "지역 (gl):"
@@ -50,6 +50,9 @@
   "presetLabel": {
     "message": "빠른 프리셋:"
   },
+  "presetCycleHint": {
+    "message": "Alt+Shift+L로 순환"
+  },
   "selectPreset": {
     "message": "프리셋 선택..."
   },
@@ -67,5 +70,23 @@
   },
   "delete": {
     "message": "삭제"
+  },
+  "advancedMode": {
+    "message": "고급"
+  },
+  "advancedModeTooltip": {
+    "message": "LR/CR 고급 옵션 활성화"
+  },
+  "excludeLanguage": {
+    "message": "제외"
+  },
+  "excludeLanguageTooltip": {
+    "message": "선택한 언어 제외"
+  },
+  "excludeCountry": {
+    "message": "제외"
+  },
+  "excludeCountryTooltip": {
+    "message": "선택한 국가 제외"
   }
 }

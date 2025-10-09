@@ -18,7 +18,7 @@
     "default_title": "__MSG_popupTitle__"
   },
   "background": {
-    "service_worker": "background.js"
+    "scripts": ["background.js"]
   },
   "commands": {
     "cycle-preset": {
