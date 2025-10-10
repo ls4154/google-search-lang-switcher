@@ -1,9 +1,11 @@
 #!/bin/bash
 
+set -euo pipefail
+
 OUTPUT_DIR="release"
 
 # Extract version from manifest.json
-VERSION=$(grep '"version"' manifest.json | sed 's/.*"version": "\(.*\)".*/\1/')
+VERSION=$(grep -m1 '"version":' manifest.json | sed -E 's/.*"version": *"([^"]+)".*/\1/')
 
 if [ -z "$VERSION" ]; then
     echo "Error: Could not extract version from manifest.json"
@@ -16,7 +18,19 @@ echo "Building release v${VERSION}..."
 mkdir -p "$OUTPUT_DIR"
 
 # Common files to include in both builds
-COMMON_FILES="background.js content.js popup.html popup.js languages.js icon16.png icon48.png icon128.png _locales LICENSE README.md"
+COMMON_FILES=(
+    background.js
+    content.js
+    popup.html
+    popup.js
+    languages.js
+    icon16.png
+    icon48.png
+    icon128.png
+    _locales
+    LICENSE
+    README.md
+)
 
 # Build Chrome version
 CHROME_DIR="${OUTPUT_DIR}/chrome"
@@ -24,7 +38,7 @@ CHROME_ZIP="google-search-lang-switcher-v${VERSION}-chrome.zip"
 echo "Building Chrome version..."
 rm -rf "$CHROME_DIR"
 mkdir -p "$CHROME_DIR"
-cp -r $COMMON_FILES "$CHROME_DIR/"
+cp -r "${COMMON_FILES[@]}" "$CHROME_DIR/"
 cp manifest.json "$CHROME_DIR/"
 cd "$CHROME_DIR"
 zip -r "../$CHROME_ZIP" .
@@ -38,7 +52,7 @@ FIREFOX_ZIP="google-search-lang-switcher-v${VERSION}-firefox.zip"
 echo "Building Firefox version..."
 rm -rf "$FIREFOX_DIR"
 mkdir -p "$FIREFOX_DIR"
-cp -r $COMMON_FILES "$FIREFOX_DIR/"
+cp -r "${COMMON_FILES[@]}" "$FIREFOX_DIR/"
 cp manifest_firefox.json "$FIREFOX_DIR/manifest.json"
 cd "$FIREFOX_DIR"
 zip -r "../$FIREFOX_ZIP" .
