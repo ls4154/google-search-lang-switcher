@@ -54,7 +54,7 @@
     "message": "Alt+Shift+L로 순환"
   },
   "presetCycleHintDynamic": {
-    "message": "$shortcut$ 단축키로 순환",
+    "message": "$shortcut$로 순환",
     "placeholders": {
       "shortcut": { "content": "$1" }
     }
