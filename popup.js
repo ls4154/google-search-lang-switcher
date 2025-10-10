@@ -11,6 +11,33 @@ let userPresets = {};
 let lrMultiSelect = null;
 let crMultiSelect = null;
 
+let cachedUiRefs = null;
+
+function getUiRefs() {
+    if (cachedUiRefs) {
+        return cachedUiRefs;
+    }
+
+    const refs = {
+        hlSelect: document.getElementById('hlSelect'),
+        glSelect: document.getElementById('glSelect'),
+        lrSelect: document.getElementById('lrSelect'),
+        crSelect: document.getElementById('crSelect'),
+        lrMultiSelect: document.getElementById('lrMultiSelect'),
+        crMultiSelect: document.getElementById('crMultiSelect'),
+        advancedToggle: document.getElementById('advancedToggle'),
+        lrExclude: document.getElementById('lrExclude'),
+        crExclude: document.getElementById('crExclude')
+    };
+
+    if (Object.values(refs).some(ref => !ref)) {
+        throw new Error('Failed to initialize popup UI references');
+    }
+
+    cachedUiRefs = refs;
+    return cachedUiRefs;
+}
+
 async function loadFavorites() {
     return new Promise((resolve) => {
         chrome.storage.sync.get(['favorites'], (result) => {
@@ -48,52 +75,82 @@ function savePresets() {
 
 // Update UI elements with parameter values
 function updateUIWithParams(hl, gl, lr, cr) {
-    const hlSelect = document.getElementById('hlSelect');
-    const glSelect = document.getElementById('glSelect');
-    const lrSelect = document.getElementById('lrSelect');
-    const crSelect = document.getElementById('crSelect');
+    const {
+        hlSelect,
+        glSelect,
+        lrSelect,
+        crSelect,
+        advancedToggle,
+        lrExclude,
+        crExclude
+    } = getUiRefs();
+
+    const lrValue = lr || '';
+    const crValue = cr || '';
+    const lrParsed = parseGoogleParam(lrValue);
+    const crParsed = parseGoogleParam(crValue);
+
+    const needsAdvanced = (lrParsed.values.length > 1 || lrParsed.isExclude) ||
+        (crParsed.values.length > 1 || crParsed.isExclude);
+
+    let isAdvanced = advancedToggle.checked;
+
+    if (needsAdvanced && !isAdvanced) {
+        advancedToggle.checked = true;
+        toggleAdvancedMode('lr', true);
+        toggleAdvancedMode('cr', true);
+        isAdvanced = true;
+    }
 
     addUnknownValueOption(hlSelect, hl, LANGUAGES);
     addUnknownValueOption(glSelect, gl, COUNTRIES);
     hlSelect.value = hl || '';
     glSelect.value = gl || '';
 
-    if (document.getElementById('advancedToggle').checked) {
-        const lrParsed = parseGoogleParam(lr || '');
+    if (isAdvanced) {
         lrMultiSelect.setValue(lrParsed.values);
-        const crParsed = parseGoogleParam(cr || '');
         crMultiSelect.setValue(crParsed.values);
     } else {
         addUnknownValueOption(lrSelect, lr, LR_LANGUAGES);
         addUnknownValueOption(crSelect, cr, CR_COUNTRIES);
-        lrSelect.value = lr || '';
-        crSelect.value = cr || '';
+        lrSelect.value = lrValue;
+        crSelect.value = crValue;
     }
+
+    lrExclude.checked = lrParsed.isExclude;
+    crExclude.checked = crParsed.isExclude;
 
     updateStarButtons();
 }
 
 // Get current selected parameter values
 function getCurrentParams() {
-    const hl = document.getElementById('hlSelect').value;
-    const gl = document.getElementById('glSelect').value;
+    const {
+        hlSelect,
+        glSelect,
+        lrSelect,
+        crSelect,
+        advancedToggle,
+        lrExclude,
+        crExclude
+    } = getUiRefs();
+
+    const hl = hlSelect.value;
+    const gl = glSelect.value;
 
     let lr, cr;
-    if (document.getElementById('advancedToggle').checked) {
+    if (advancedToggle.checked) {
         const lrValues = lrMultiSelect.getValue();
         const crValues = crMultiSelect.getValue();
 
-        const lrExclude = document.getElementById('lrExclude')?.checked || false;
-        const crExclude = document.getElementById('crExclude')?.checked || false;
-
-        const lrParsed = { values: lrValues, isExclude: lrExclude };
-        const crParsed = { values: crValues, isExclude: crExclude };
+        const lrParsed = { values: lrValues, isExclude: lrExclude.checked };
+        const crParsed = { values: crValues, isExclude: crExclude.checked };
 
         lr = encodeGoogleParam(lrParsed);
         cr = encodeGoogleParam(crParsed);
     } else {
-        lr = document.getElementById('lrSelect').value;
-        cr = document.getElementById('crSelect').value;
+        lr = lrSelect.value;
+        cr = crSelect.value;
     }
 
     return { hl, gl, lr, cr };
@@ -105,9 +162,6 @@ function applyPreset(presetId) {
 
     const preset = userPresets[presetId];
     const params = preset.params;
-
-    // Auto-activate Advanced mode for OR values
-    autoActivateAdvancedMode(params.lr || '', params.cr || '');
 
     updateUIWithParams(params.hl, params.gl, params.lr, params.cr);
 }
@@ -504,25 +558,25 @@ function createOptionWithStar(value, text, type, isFavorite = false) {
 }
 
 function populateSelects() {
+    const { hlSelect, glSelect, lrSelect, crSelect } = getUiRefs();
     // Save current selections
-    const currentHl = document.getElementById('hlSelect').value;
-    const currentGl = document.getElementById('glSelect').value;
-    const currentLr = document.getElementById('lrSelect').value;
-    const currentCr = document.getElementById('crSelect').value;
+    const currentHl = hlSelect.value;
+    const currentGl = glSelect.value;
+    const currentLr = lrSelect.value;
+    const currentCr = crSelect.value;
 
     populateLanguageSelects();
     populateCountrySelects();
 
     // Restore current selections
-    document.getElementById('hlSelect').value = currentHl;
-    document.getElementById('glSelect').value = currentGl;
-    document.getElementById('lrSelect').value = currentLr;
-    document.getElementById('crSelect').value = currentCr;
+    hlSelect.value = currentHl;
+    glSelect.value = currentGl;
+    lrSelect.value = currentLr;
+    crSelect.value = currentCr;
 }
 
 function populateLanguageSelects() {
-    const hlSelect = document.getElementById('hlSelect');
-    const lrSelect = document.getElementById('lrSelect');
+    const { hlSelect, lrSelect } = getUiRefs();
 
     // Get localized default value text
     const defaultText = chrome.i18n.getMessage('defaultValue');
@@ -590,8 +644,7 @@ function populateLanguageSelects() {
 }
 
 function populateCountrySelects() {
-    const glSelect = document.getElementById('glSelect');
-    const crSelect = document.getElementById('crSelect');
+    const { glSelect, crSelect } = getUiRefs();
 
     // Get localized default value text
     const defaultText = chrome.i18n.getMessage('defaultValue');
@@ -659,13 +712,14 @@ function populateCountrySelects() {
 }
 
 function addStarButtonHandlers() {
+    const ui = getUiRefs();
+
     // HL star button
     const hlStar = document.getElementById('hlStar');
     hlStar.addEventListener('click', () => {
-        const hlSelect = document.getElementById('hlSelect');
-        const hlSelectedOption = hlSelect.options[hlSelect.selectedIndex];
+        const hlSelectedOption = ui.hlSelect.options[ui.hlSelect.selectedIndex];
         if (hlSelectedOption && hlSelectedOption.value) {
-            let hlCode = hlSelectedOption.value;
+            const hlCode = hlSelectedOption.value;
             if (LANGUAGES[hlCode]) {
                 toggleFavorite('hl', hlCode);
                 updateStarButtons();
@@ -676,7 +730,7 @@ function addStarButtonHandlers() {
     // LR star button
     const lrStar = document.getElementById('lrStar');
     lrStar.addEventListener('click', () => {
-        const lrHandlerIsAdvanced = document.getElementById('advancedToggle')?.checked;
+        const lrHandlerIsAdvanced = ui.advancedToggle.checked;
 
         if (lrHandlerIsAdvanced) {
             // Advanced mode - use multi-select
@@ -689,8 +743,7 @@ function addStarButtonHandlers() {
             }
         } else {
             // Regular mode - use regular select
-            const lrSelect = document.getElementById('lrSelect');
-            const lrSelectedOption = lrSelect.options[lrSelect.selectedIndex];
+            const lrSelectedOption = ui.lrSelect.options[ui.lrSelect.selectedIndex];
             if (lrSelectedOption && lrSelectedOption.value) {
                 const lrHandlerCode = lrSelectedOption.value;
                 if (LR_LANGUAGES[lrHandlerCode]) {
@@ -704,10 +757,9 @@ function addStarButtonHandlers() {
     // GL star button
     const glStar = document.getElementById('glStar');
     glStar.addEventListener('click', () => {
-        const glSelect = document.getElementById('glSelect');
-        const glSelectedOption = glSelect.options[glSelect.selectedIndex];
+        const glSelectedOption = ui.glSelect.options[ui.glSelect.selectedIndex];
         if (glSelectedOption && glSelectedOption.value) {
-            let glCode = glSelectedOption.value;
+            const glCode = glSelectedOption.value;
             if (COUNTRIES[glCode]) {
                 toggleFavorite('gl', glCode);
                 updateStarButtons();
@@ -718,7 +770,7 @@ function addStarButtonHandlers() {
     // CR star button
     const crStar = document.getElementById('crStar');
     crStar.addEventListener('click', () => {
-        const crHandlerIsAdvanced = document.getElementById('advancedToggle')?.checked;
+        const crHandlerIsAdvanced = ui.advancedToggle.checked;
 
         if (crHandlerIsAdvanced) {
             // Advanced mode - use multi-select
@@ -731,8 +783,7 @@ function addStarButtonHandlers() {
             }
         } else {
             // Regular mode - use regular select
-            const crSelect = document.getElementById('crSelect');
-            const crSelectedOption = crSelect.options[crSelect.selectedIndex];
+            const crSelectedOption = ui.crSelect.options[ui.crSelect.selectedIndex];
             if (crSelectedOption && crSelectedOption.value) {
                 const crHandlerCode = crSelectedOption.value;
                 if (CR_COUNTRIES[crHandlerCode]) {
@@ -745,10 +796,11 @@ function addStarButtonHandlers() {
 }
 
 function updateStarButtons() {
+    const ui = getUiRefs();
+
     // HL star
-    const hlSelect = document.getElementById('hlSelect');
     const hlStar = document.getElementById('hlStar');
-    const hlSelectedOption = hlSelect.options[hlSelect.selectedIndex];
+    const hlSelectedOption = ui.hlSelect.options[ui.hlSelect.selectedIndex];
     const hlCode = hlSelectedOption?.value;
     if (hlCode && LANGUAGES[hlCode] && userFavorites.hl.includes(hlCode)) {
         hlStar.classList.remove('inactive');
@@ -760,7 +812,7 @@ function updateStarButtons() {
 
     // LR star (check both regular and multi-select modes)
     const lrStar = document.getElementById('lrStar');
-    const lrIsAdvanced = document.getElementById('advancedToggle')?.checked;
+    const lrIsAdvanced = ui.advancedToggle.checked;
 
     if (lrIsAdvanced) {
         // Advanced mode
@@ -791,8 +843,7 @@ function updateStarButtons() {
         }
     } else {
         // Regular mode
-        const lrSelect = document.getElementById('lrSelect');
-        const lrSelectedOption = lrSelect.options[lrSelect.selectedIndex];
+        const lrSelectedOption = ui.lrSelect.options[ui.lrSelect.selectedIndex];
         const lrCode = lrSelectedOption?.value;
         if (lrCode && LR_LANGUAGES[lrCode] && userFavorites.lr.includes(lrCode)) {
             lrStar.classList.remove('inactive');
@@ -806,9 +857,8 @@ function updateStarButtons() {
     }
 
     // GL star
-    const glSelect = document.getElementById('glSelect');
     const glStar = document.getElementById('glStar');
-    const glSelectedOption = glSelect.options[glSelect.selectedIndex];
+    const glSelectedOption = ui.glSelect.options[ui.glSelect.selectedIndex];
     const glCode = glSelectedOption?.value;
     if (glCode && COUNTRIES[glCode] && userFavorites.gl.includes(glCode)) {
         glStar.classList.remove('inactive');
@@ -820,7 +870,7 @@ function updateStarButtons() {
 
     // CR star (check both regular and multi-select modes)
     const crStar = document.getElementById('crStar');
-    const crIsAdvanced = document.getElementById('advancedToggle')?.checked;
+    const crIsAdvanced = ui.advancedToggle.checked;
 
     if (crIsAdvanced) {
         // Advanced mode
@@ -851,8 +901,7 @@ function updateStarButtons() {
         }
     } else {
         // Regular mode
-        const crSelect = document.getElementById('crSelect');
-        const crSelectedOption = crSelect.options[crSelect.selectedIndex];
+        const crSelectedOption = ui.crSelect.options[ui.crSelect.selectedIndex];
         const crCode = crSelectedOption?.value;
         if (crCode && CR_COUNTRIES[crCode] && userFavorites.cr.includes(crCode)) {
             crStar.classList.remove('inactive');
@@ -868,32 +917,30 @@ function updateStarButtons() {
 
 // Add change listeners to update star buttons
 function addSelectChangeHandlers() {
-    ['hlSelect', 'glSelect', 'lrSelect', 'crSelect'].forEach(id => {
-        const select = document.getElementById(id);
-        if (select) {
-            select.addEventListener('change', updateStarButtons);
-        }
+    const { hlSelect, glSelect, lrSelect, crSelect } = getUiRefs();
+    [hlSelect, glSelect, lrSelect, crSelect].forEach(select => {
+        select.addEventListener('change', updateStarButtons);
     });
 }
 
 function addAdvancedToggleHandler() {
-    const advancedToggle = document.getElementById('advancedToggle');
+    const { advancedToggle } = getUiRefs();
 
-    if (advancedToggle) {
-        advancedToggle.addEventListener('change', () => {
-            const isAdvanced = advancedToggle.checked;
-            toggleAdvancedMode('lr', isAdvanced);
-            toggleAdvancedMode('cr', isAdvanced);
-        });
-    }
+    advancedToggle.addEventListener('change', () => {
+        const isAdvanced = advancedToggle.checked;
+        toggleAdvancedMode('lr', isAdvanced);
+        toggleAdvancedMode('cr', isAdvanced);
+    });
 }
 
 function toggleAdvancedMode(type, isAdvanced) {
-    const regularSelect = document.getElementById(type + 'Select');
-    const multiSelect = document.getElementById(type + 'MultiSelect');
-    const multiSelectInstance = type === 'lr' ? lrMultiSelect : crMultiSelect;
-    const excludeToggle = document.getElementById(type + 'Exclude');
-    const excludeContainer = excludeToggle?.parentElement;
+    const ui = getUiRefs();
+    const isLanguageRestrict = type === 'lr';
+    const regularSelect = isLanguageRestrict ? ui.lrSelect : ui.crSelect;
+    const multiSelect = isLanguageRestrict ? ui.lrMultiSelect : ui.crMultiSelect;
+    const multiSelectInstance = isLanguageRestrict ? lrMultiSelect : crMultiSelect;
+    const excludeToggle = isLanguageRestrict ? ui.lrExclude : ui.crExclude;
+    const excludeContainer = excludeToggle.parentElement;
 
     if (isAdvanced) {
         // Switch to multi-select mode
@@ -901,10 +948,8 @@ function toggleAdvancedMode(type, isAdvanced) {
         multiSelect.style.display = 'block';
 
         // Show and enable exclude toggle
-        if (excludeToggle) {
-            excludeToggle.disabled = false;
-            if (excludeContainer) excludeContainer.style.display = 'flex';
-        }
+        excludeToggle.disabled = false;
+        excludeContainer.style.display = 'flex';
 
         // Transfer current value to multi-select
         const currentValue = regularSelect.value;
@@ -918,11 +963,9 @@ function toggleAdvancedMode(type, isAdvanced) {
         regularSelect.style.display = 'block';
 
         // Hide and disable exclude toggle
-        if (excludeToggle) {
-            excludeToggle.disabled = true;
-            excludeToggle.checked = false;
-            if (excludeContainer) excludeContainer.style.display = 'none';
-        }
+        excludeToggle.disabled = true;
+        excludeToggle.checked = false;
+        excludeContainer.style.display = 'none';
 
         // Transfer first selected value back to regular select
         const selectedValues = multiSelectInstance.selectedValues;
@@ -938,36 +981,6 @@ function toggleAdvancedMode(type, isAdvanced) {
     }
 
     updateStarButtons();
-}
-
-function autoActivateAdvancedMode(lrValue, crValue) {
-    const lrParsed = parseGoogleParam(lrValue);
-    const crParsed = parseGoogleParam(crValue);
-
-    const needsAdvanced = (lrParsed.values.length > 1 || lrParsed.isExclude) ||
-        (crParsed.values.length > 1 || crParsed.isExclude);
-
-    if (needsAdvanced) {
-        const advancedToggle = document.getElementById('advancedToggle');
-        if (advancedToggle && !advancedToggle.checked) {
-            advancedToggle.checked = true;
-            toggleAdvancedMode('lr', true);
-            toggleAdvancedMode('cr', true);
-        }
-
-        setExcludeToggles(lrValue, crValue);
-    }
-}
-
-function setExcludeToggles(lrValue, crValue) {
-    const lrParsed = parseGoogleParam(lrValue);
-    const crParsed = parseGoogleParam(crValue);
-
-    const lrExclude = document.getElementById('lrExclude');
-    if (lrExclude) lrExclude.checked = lrParsed.isExclude;
-
-    const crExclude = document.getElementById('crExclude');
-    if (crExclude) crExclude.checked = crParsed.isExclude;
 }
 
 // Parse Google search parameter into structured format
@@ -1058,9 +1071,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const currentGl = url.searchParams.get('gl') || '';
         const currentLr = url.searchParams.get('lr') || '';
         const currentCr = url.searchParams.get('cr') || '';
-
-        // Auto-activate Advanced mode for OR values
-        autoActivateAdvancedMode(currentLr, currentCr);
 
         // current setttings
         const defaultValue = chrome.i18n.getMessage('defaultValue');
