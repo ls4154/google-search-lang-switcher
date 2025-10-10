@@ -53,6 +53,15 @@
   "presetCycleHint": {
     "message": "Alt+Shift+L로 순환"
   },
+  "presetCycleHintDynamic": {
+    "message": "$shortcut$ 단축키로 순환",
+    "placeholders": {
+      "shortcut": { "content": "$1" }
+    }
+  },
+  "presetCycleHintUnset": {
+    "message": "단축키가 설정되지 않았습니다"
+  },
   "selectPreset": {
     "message": "프리셋 선택..."
   },

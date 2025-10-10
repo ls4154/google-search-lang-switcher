@@ -12,7 +12,7 @@ Easily customize language and region settings for Google Search to get better lo
 - **Multiple Language Selection**: Search across multiple languages simultaneously (e.g., `lang_en|lang_ko`)
 - **Exclude Languages**: Exclude specific languages from results (e.g., `-lang_ja`)
 - **Quick Presets**: Save your favorite settings and switch between them instantly
-- **Keyboard Shortcut**: Press `Alt+Shift+L` to cycle through your presets
+- **Keyboard Shortcut**: Press `Alt+Shift+L` (default) to cycle through your presets
 - **Favorites**: Star frequently used languages and countries for quick access
 
 ## Install

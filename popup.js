@@ -42,6 +42,50 @@ function saveToSyncStorage(key, value) {
     });
 }
 
+function updateCommandShortcutHint() {
+    const hintElement = document.querySelector('[data-i18n="presetCycleHint"]');
+    if (!hintElement) {
+        return;
+    }
+
+    if (!chrome.commands || typeof chrome.commands.getAll !== 'function') {
+        return;
+    }
+
+    const applyShortcut = (commands) => {
+        if (!Array.isArray(commands)) {
+            return;
+        }
+
+        const cycleCommand = commands.find(command => command.name === 'cycle-preset');
+        if (!cycleCommand) {
+            return;
+        }
+
+        const shortcut = cycleCommand.shortcut;
+        if (shortcut) {
+            const message = chrome.i18n.getMessage('presetCycleHintDynamic', [shortcut]) || shortcut;
+            hintElement.textContent = message;
+        } else {
+            const unsetMessage = chrome.i18n.getMessage('presetCycleHintUnset');
+            if (unsetMessage) {
+                hintElement.textContent = unsetMessage;
+            }
+        }
+    };
+
+    try {
+        chrome.commands.getAll((commands) => {
+            if (chrome.runtime && chrome.runtime.lastError) {
+                return;
+            }
+            applyShortcut(commands);
+        });
+    } catch (error) {
+        // Silently ignore environments that disallow querying shortcuts
+    }
+}
+
 function getUiRefs() {
     if (cachedUiRefs) {
         return cachedUiRefs;
@@ -1092,6 +1136,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const message = chrome.i18n.getMessage(key);
         element.title = message;
     });
+
+    updateCommandShortcutHint();
 
     // Get current tab info
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {

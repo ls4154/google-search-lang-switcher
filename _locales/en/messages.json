@@ -53,6 +53,15 @@
   "presetCycleHint": {
     "message": "Alt+Shift+L to cycle"
   },
+  "presetCycleHintDynamic": {
+    "message": "Press $shortcut$ to cycle",
+    "placeholders": {
+      "shortcut": { "content": "$1" }
+    }
+  },
+  "presetCycleHintUnset": {
+    "message": "Shortcut not configured"
+  },
   "selectPreset": {
     "message": "Select preset..."
   },
