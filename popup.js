@@ -13,6 +13,35 @@ let crMultiSelect = null;
 
 let cachedUiRefs = null;
 
+const STORAGE_KEYS = {
+    favorites: 'favorites',
+    presets: 'presets'
+};
+
+function loadFromSyncStorage(key, defaultValue) {
+    return new Promise((resolve) => {
+        chrome.storage.sync.get([key], (result) => {
+            const value = result[key];
+            if (value !== undefined && value !== null) {
+                resolve(value);
+                return;
+            }
+
+            if (defaultValue !== undefined) {
+                chrome.storage.sync.set({ [key]: defaultValue }, () => resolve(defaultValue));
+            } else {
+                resolve(undefined);
+            }
+        });
+    });
+}
+
+function saveToSyncStorage(key, value) {
+    return new Promise((resolve) => {
+        chrome.storage.sync.set({ [key]: value }, resolve);
+    });
+}
+
 function getUiRefs() {
     if (cachedUiRefs) {
         return cachedUiRefs;
@@ -39,42 +68,44 @@ function getUiRefs() {
 }
 
 async function loadFavorites() {
-    return new Promise((resolve) => {
-        chrome.storage.sync.get(['favorites'], (result) => {
-            if (result.favorites) {
-                userFavorites = result.favorites;
-            } else {
-                userFavorites = DEFAULT_FAVORITES;
-            }
-            resolve();
-        });
-    });
+    userFavorites = await loadFromSyncStorage(STORAGE_KEYS.favorites, DEFAULT_FAVORITES);
 }
 
 function saveFavorites() {
-    chrome.storage.sync.set({ favorites: userFavorites });
+    saveToSyncStorage(STORAGE_KEYS.favorites, userFavorites);
 }
 
 async function loadPresets() {
-    return new Promise((resolve) => {
-        chrome.storage.sync.get(['presets'], (result) => {
-            if (result.presets) {
-                userPresets = result.presets;
-            } else {
-                userPresets = DEFAULT_PRESETS;
-                chrome.storage.sync.set({ presets: DEFAULT_PRESETS });
-            }
-            resolve();
-        });
-    });
+    userPresets = await loadFromSyncStorage(STORAGE_KEYS.presets, DEFAULT_PRESETS);
 }
 
 function savePresets() {
-    chrome.storage.sync.set({ presets: userPresets });
+    saveToSyncStorage(STORAGE_KEYS.presets, userPresets);
 }
 
-// Update UI elements with parameter values
-function updateUIWithParams(hl, gl, lr, cr) {
+function deriveParamState(hl, gl, lr, cr) {
+    const hlValue = hl || '';
+    const glValue = gl || '';
+    const lrValue = lr || '';
+    const crValue = cr || '';
+    const lrParsed = parseGoogleParam(lrValue);
+    const crParsed = parseGoogleParam(crValue);
+
+    const needsAdvanced = (lrParsed.values.length > 1 || lrParsed.isExclude) ||
+        (crParsed.values.length > 1 || crParsed.isExclude);
+
+    return {
+        hlValue,
+        glValue,
+        lrValue,
+        crValue,
+        lrParsed,
+        crParsed,
+        needsAdvanced
+    };
+}
+
+function renderParamState(paramState) {
     const {
         hlSelect,
         glSelect,
@@ -85,13 +116,15 @@ function updateUIWithParams(hl, gl, lr, cr) {
         crExclude
     } = getUiRefs();
 
-    const lrValue = lr || '';
-    const crValue = cr || '';
-    const lrParsed = parseGoogleParam(lrValue);
-    const crParsed = parseGoogleParam(crValue);
-
-    const needsAdvanced = (lrParsed.values.length > 1 || lrParsed.isExclude) ||
-        (crParsed.values.length > 1 || crParsed.isExclude);
+    const {
+        hlValue,
+        glValue,
+        lrValue,
+        crValue,
+        lrParsed,
+        crParsed,
+        needsAdvanced
+    } = paramState;
 
     let isAdvanced = advancedToggle.checked;
 
@@ -102,17 +135,17 @@ function updateUIWithParams(hl, gl, lr, cr) {
         isAdvanced = true;
     }
 
-    addUnknownValueOption(hlSelect, hl, LANGUAGES);
-    addUnknownValueOption(glSelect, gl, COUNTRIES);
-    hlSelect.value = hl || '';
-    glSelect.value = gl || '';
+    addUnknownValueOption(hlSelect, hlValue, LANGUAGES);
+    addUnknownValueOption(glSelect, glValue, COUNTRIES);
+    hlSelect.value = hlValue;
+    glSelect.value = glValue;
 
     if (isAdvanced) {
         lrMultiSelect.setValue(lrParsed.values);
         crMultiSelect.setValue(crParsed.values);
     } else {
-        addUnknownValueOption(lrSelect, lr, LR_LANGUAGES);
-        addUnknownValueOption(crSelect, cr, CR_COUNTRIES);
+        addUnknownValueOption(lrSelect, lrValue, LR_LANGUAGES);
+        addUnknownValueOption(crSelect, crValue, CR_COUNTRIES);
         lrSelect.value = lrValue;
         crSelect.value = crValue;
     }
@@ -121,6 +154,12 @@ function updateUIWithParams(hl, gl, lr, cr) {
     crExclude.checked = crParsed.isExclude;
 
     updateStarButtons();
+}
+
+// Update UI elements with parameter values
+function updateUIWithParams(hl, gl, lr, cr) {
+    const paramState = deriveParamState(hl, gl, lr, cr);
+    renderParamState(paramState);
 }
 
 // Get current selected parameter values
