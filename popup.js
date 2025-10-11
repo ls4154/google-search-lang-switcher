@@ -43,7 +43,7 @@ function saveToSyncStorage(key, value) {
 }
 
 function updateCommandShortcutHint() {
-    const hintElement = document.querySelector('[data-i18n="presetCycleHint"]');
+    const hintElement = document.getElementById('presetShortcutHint');
     if (!hintElement) {
         return;
     }
@@ -84,6 +84,35 @@ function updateCommandShortcutHint() {
     } catch (error) {
         // Silently ignore environments that disallow querying shortcuts
     }
+}
+
+function openShortcutSettingsPage() {
+    const isFirefox = navigator.userAgent.includes('Firefox');
+    const shortcutPageUrl = isFirefox
+        ? 'https://support.mozilla.org/kb/manage-extension-shortcuts-firefox'
+        : 'chrome://extensions/shortcuts';
+
+    try {
+        chrome.tabs.create({ url: shortcutPageUrl }, () => {
+            if (chrome.runtime && chrome.runtime.lastError) {
+                // Ignore errors (e.g., blocked internal pages)
+            }
+        });
+    } catch (_error) {
+        // Silently ignore environments that disallow opening the shortcuts page
+    }
+}
+
+function registerShortcutHintHandler() {
+    const hintElement = document.getElementById('presetShortcutHint');
+    if (!hintElement) {
+        return;
+    }
+
+    hintElement.addEventListener('click', () => {
+        openShortcutSettingsPage();
+        window.close();
+    });
 }
 
 function getUiRefs() {
@@ -1138,6 +1167,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     updateCommandShortcutHint();
+    registerShortcutHintHandler();
 
     // Get current tab info
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {

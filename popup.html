@@ -154,6 +154,10 @@
             font-weight: 400;
         }
 
+        .hint.clickable {
+            cursor: pointer;
+        }
+
         .preset-btn {
             width: 20px;
             height: 32px;
@@ -406,7 +410,7 @@
     <div class="preset-section">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
             <label for="presetSelect" style="margin-bottom: 0;" data-i18n="presetLabel">Quick Presets:</label>
-            <span class="hint" data-i18n="presetCycleHint">Alt+Shift+L to cycle</span>
+            <span id="presetShortcutHint" class="hint clickable" data-i18n="presetCycleHint">Alt+Shift+L to cycle</span>
         </div>
         <div style="display: flex; align-items: center;">
             <select id="presetSelect" style="width: calc(100% - 48px); margin-right: 4px;">
