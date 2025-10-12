@@ -1114,6 +1114,15 @@ function parseGoogleParam(value) {
     }
 
     const values = cleanValue ? cleanValue.split('|') : [];
+    const tokenPattern = /^[A-Za-z0-9_-]+$/;
+
+    const hasInvalidToken = values.some(token =>
+        !tokenPattern.test(token) || token.startsWith('-')
+    );
+
+    if (hasInvalidToken) {
+        return { values: [value], isExclude: false };
+    }
 
     return { values, isExclude };
 }
