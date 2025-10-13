@@ -115,6 +115,23 @@ function registerShortcutHintHandler() {
     });
 }
 
+function showToast(message) {
+    let toast = document.getElementById('toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'toast';
+        toast.className = 'toast';
+        document.body.appendChild(toast);
+    }
+
+    toast.textContent = message;
+    toast.classList.add('show');
+
+    setTimeout(() => {
+        toast.classList.remove('show');
+    }, 2500);
+}
+
 function getUiRefs() {
     if (cachedUiRefs) {
         return cachedUiRefs;
@@ -282,6 +299,13 @@ function applyPreset(presetId) {
 function showPresetModal() {
     const { hl: hlValue, gl: glValue, lr: lrValue, cr: crValue } = getCurrentParams();
 
+    if (!hlValue && !glValue && !lrValue && !crValue) {
+        const message = chrome.i18n.getMessage('presetEmptyWarning') ||
+            'Preset must change at least one setting.';
+        showToast(message);
+        return;
+    }
+
     // Generate suggested name
     const hlName = hlValue ? (LANGUAGES[hlValue] || hlValue) : 'Default';
     const glName = glValue ? (COUNTRIES[glValue] || glValue) : 'Default';
@@ -304,9 +328,30 @@ function saveCurrentAsPreset() {
     const presetNameInput = document.getElementById('presetNameInput');
     const presetName = presetNameInput.value.trim();
 
-    if (!presetName) return;
+    if (!presetName) {
+        const message = chrome.i18n.getMessage('presetNameRequired') ||
+            'Please enter a preset name.';
+        showToast(message);
+        return;
+    }
 
     const { hl: hlValue, gl: glValue, lr: lrValue, cr: crValue } = getCurrentParams();
+
+    const isDuplicate = Object.values(userPresets).some(preset => {
+        const params = preset?.params;
+        if (!params) return false;
+        return params.hl === hlValue &&
+            params.gl === glValue &&
+            params.lr === lrValue &&
+            params.cr === crValue;
+    });
+
+    if (isDuplicate) {
+        const message = chrome.i18n.getMessage('presetDuplicateWarning') ||
+            'A preset with the same settings already exists.';
+        showToast(message);
+        return;
+    }
 
     // Generate unique ID
     const presetId = 'preset_' + Date.now();

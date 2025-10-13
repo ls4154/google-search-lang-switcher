@@ -62,6 +62,15 @@
   "presetCycleHintUnset": {
     "message": "Shortcut not configured"
   },
+  "presetDuplicateWarning": {
+    "message": "A preset with the same settings already exists."
+  },
+  "presetNameRequired": {
+    "message": "Please enter a preset name."
+  },
+  "presetEmptyWarning": {
+    "message": "Preset must include at least one setting."
+  },
   "selectPreset": {
     "message": "Select preset..."
   },

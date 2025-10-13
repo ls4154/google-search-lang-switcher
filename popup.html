@@ -158,6 +158,29 @@
             cursor: pointer;
         }
 
+        .toast {
+            position: fixed;
+            left: 50%;
+            bottom: 16px;
+            transform: translateX(-50%);
+            background: rgba(32, 33, 36, 0.9);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 999px;
+            font-size: 12px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 2000;
+            min-width: 220px;
+            max-width: calc(100% - 40px);
+            text-align: center;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+
         .preset-btn {
             width: 20px;
             height: 32px;
